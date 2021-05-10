@@ -1,10 +1,10 @@
-import datetime
 from collections import Counter
 from io import StringIO, BytesIO
 
 from discord.ext import commands
 import discord
 import matplotlib.pyplot as plt
+import matplotlib.dates as md
 import bot.util.database as db
 import csv
 
@@ -142,21 +142,24 @@ class Statistics(commands.Cog):
         return people.most_common(n)
 
     @stats.command(name="plot")
-    async def plot(self, ctx: Context):
+    async def plot(self, ctx: Context, user: discord.Member = None):
+        if user is None:
+            user = ctx.author
         command = "SELECT * FROM messages WHERE guild_id = {0} AND user_id = {1} AND time >= NOW() at time zone 'utc' - INTERVAL '{2}' ORDER BY time;"
-        command = command.format(str(ctx.guild.id), str(ctx.author.id), '24 HOURS')
+        command = command.format(str(ctx.guild.id), str(user.id), '24 HOURS')
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
-        x = []
-        y = []
+        data = Counter()
         for e in entries:
-            x.append(e['time'])
-            y.append(e["amount"])
+            data[e['time']] += e["amount"]
         fig, ax = plt.subplots(ncols=1, nrows=1)
         fig: plt.Figure
         ax: plt.Axes
-        ax.plot(x, y)
+        ax.xaxis.set_major_locator(md.HourLocator(interval=3))
+        date_fm = md.DateFormatter('%H:%M')
+        ax.xaxis.set_major_formatter(date_fm)
+        bar = ax.bar(data.keys(), data.values(), width=1/48, alpha=0.2, align='edge', edgecolor='b')
         fig.autofmt_xdate()
         buffer = BytesIO()
         fig.savefig(buffer, format="png")

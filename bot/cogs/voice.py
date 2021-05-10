@@ -84,11 +84,11 @@ class Voice(commands.Cog):
         elements = []
         element_format = "({0}, {1}, {2}, {3}, {4})"
         for c in self.cache:
-            dif = c.stopped_or_now() - c.degrees
+            dif = c.stopped_or_now() - c.start
             minutes = dif.total_seconds() // 60
             if minutes < 1:
                 continue
-            time_str = c.degrees.strftime("'%Y-%m-%d %H:%M:%S'")
+            time_str = c.start.strftime("'%Y-%m-%d %H:%M:%S'")
             elements.append(element_format.format(c.guild_id, c.channel_id, c.member_id, time_str, f"'{dif.total_seconds()} SECONDS'"))
         if len(elements) == 0:
             return
