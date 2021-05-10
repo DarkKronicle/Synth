@@ -1,12 +1,10 @@
 import io
 
-import discord
 from PIL import Image
 from discord.ext import commands
 
 from bot import synth_bot
 from bot.util.context import Context
-import bot.util.database as db
 
 
 class Owner(commands.Cog):
@@ -42,14 +40,6 @@ class Owner(commands.Cog):
         byte = buffer.read()
         await self.bot.user.edit(avatar=byte)
         return byte
-
-    async def fix(self, ctx: Context):
-        command = "SELECT * FROM messages;"
-        command2 = "UPDATE messages SET time = time + (EXTRACT(DAY FROM time) - EXTRACT(MONTHS FROM time) || 'MONTHS')::interval + (EXTRACT(MONTH FROM time) - EXTRACT(DAYS FROM time) || 'DAYS')::interval;"
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
-
 
 
 def setup(bot):

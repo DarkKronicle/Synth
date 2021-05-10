@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime, timedelta
 from io import StringIO, BytesIO
 
 from discord.ext import commands
@@ -67,7 +68,9 @@ class Statistics(commands.Cog):
 
         if type == "messages":
             embed = await self.get_message_embed(ctx.guild)
-            return await ctx.send(embed=embed)
+            plot = await self.plot_24_hour_total(f"guild_id = {ctx.guild.id}")
+            embed.set_image(url="attachment://graph.png")
+            return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
 
         if type == "voice":
             embed = await self.get_voice_embed(ctx.guild)
@@ -141,30 +144,41 @@ class Statistics(commands.Cog):
             people[e[key]] += e["amount"]
         return people.most_common(n)
 
-    @stats.command(name="plot")
-    async def plot(self, ctx: Context, user: discord.Member = None):
-        if user is None:
-            user = ctx.author
-        command = "SELECT * FROM messages WHERE guild_id = {0} AND user_id = {1} AND time >= NOW() at time zone 'utc' - INTERVAL '{2}' ORDER BY time;"
-        command = command.format(str(ctx.guild.id), str(user.id), '24 HOURS')
+    async def plot_24_hour_total(self, condition):
+        command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' " \
+                  "- INTERVAL '{1}' ORDER BY time; "
+        command = command.format(condition, '24 HOURS')
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
+
+        # Amount of messages per time
         data = Counter()
+        data[datetime.now()] = 0
+        data[datetime.now() - timedelta(days=1)] = 0
         for e in entries:
             data[e['time']] += e["amount"]
+
+        plt.style.use('dark_background')
         fig, ax = plt.subplots(ncols=1, nrows=1)
-        fig: plt.Figure
-        ax: plt.Axes
         ax.xaxis.set_major_locator(md.HourLocator(interval=3))
         date_fm = md.DateFormatter('%H:%M')
         ax.xaxis.set_major_formatter(date_fm)
-        bar = ax.bar(data.keys(), data.values(), width=1/48, alpha=0.2, align='edge', edgecolor='b')
+        ax.yaxis.grid(color="white", alpha=0.2)
+
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+
+        ax.set_xlabel("Time (UTC)")
+        ax.set_ylabel("Messages")
+        _ = ax.bar(data.keys(), data.values(), width=1/48, alpha=1, align='edge', edgecolor=str(self.main_color), color=str(self.main_color))
         fig.autofmt_xdate()
+
         buffer = BytesIO()
-        fig.savefig(buffer, format="png")
+        fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
         buffer.seek(0)
-        await ctx.send("Graph of today", file=discord.File(fp=buffer, filename="graph.png"))
+        return buffer
 
 
 def setup(bot):
