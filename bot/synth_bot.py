@@ -60,7 +60,7 @@ class SynthBot(commands.Bot):
                 traceback.print_exc()
 
     def run(self):
-        super().run(bot.config['bot_token'], reconnect=True, bot=True)
+        super().run(bot.config['bot_token'], reconnect=True)
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
