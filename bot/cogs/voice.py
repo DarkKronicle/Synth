@@ -2,7 +2,9 @@ from dateutil.tz import gettz
 from discord.ext import commands
 import discord
 import bot.util.database as db
-from datetime import datetime
+from datetime import datetime, timedelta
+from pytz import timezone
+
 
 from bot import synth_bot
 
