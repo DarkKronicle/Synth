@@ -63,7 +63,7 @@ class Messages(commands.Cog):
             return
         insert = []
         time = self.floor_time(top=30)
-        time_str = time.strftime("'%d-%m-%Y %H:%M:%S'")
+        time_str = time.strftime("'%Y-%m-%d %H:%M:%S'")
         value = "({0}, {1}, {2}, {3}, {4})"
         for data, amount in self.cache.items():
             insert.append(value.format(str(data[0]), str(data[1]), str(data[2]), amount, time_str))

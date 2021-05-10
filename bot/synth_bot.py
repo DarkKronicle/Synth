@@ -1,39 +1,17 @@
 import discord
+import bot.util.time_util as tutil
 from discord.ext import commands, tasks
 
 import bot
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import traceback
 
 from bot.util.context import Context
-from pytz import timezone
 
 cogs_dir = "bot.cogs"
-startup_extensions = ["utility", "messages", "statistics", "voice"]
+startup_extensions = ["utility", "messages", "statistics", "voice", "owner"]
 description = "Statistics incarnate"
-
-
-def get_time_until():
-    now = datetime.now()
-    return 60 - now.second
-
-
-def round_time(dt=None, round_to=30 * 60):
-    """Round a datetime object to any time lapse in seconds
-   dt : datetime.datetime object, default now.
-   roundTo : Closest number of seconds to round to, default 1 minute.
-   Author: Thierry Husson 2012 - Use it as you want but don't blame me.
-   """
-    if dt is None:
-        zone = timezone('UTC')
-        utc = timezone('UTC')
-        dt = utc.localize(datetime.now())
-        dt = dt.astimezone(zone)
-
-    seconds = (dt.replace(tzinfo=None) - dt.replace(tzinfo=None, hour=0, minute=0, second=0)).seconds
-    rounding = (seconds + round_to / 2) // round_to * round_to
-    return dt + timedelta(0, rounding - seconds, -dt.microsecond)
 
 
 class SynthBot(commands.Bot):
@@ -100,7 +78,7 @@ class SynthBot(commands.Bot):
 
     @tasks.loop(minutes=1)
     async def time_loop(self):
-        time = round_time(round_to=60)
+        time = tutil.round_time(round_to=60)
         for loop in self.loops:
             try:
                 await self.loops[loop](time)
@@ -111,7 +89,7 @@ class SynthBot(commands.Bot):
 
     first_loop = True
 
-    @tasks.loop(seconds=get_time_until())
+    @tasks.loop(seconds=tutil.get_time_until_minute())
     async def setup_loop(self):
         # Probably one of the most hacky ways to get a loop to run every thirty minutes based
         # off of starting on one of them.

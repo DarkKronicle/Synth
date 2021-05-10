@@ -1,9 +1,10 @@
 import datetime
 from collections import Counter
-from io import StringIO
+from io import StringIO, BytesIO
 
 from discord.ext import commands
 import discord
+import matplotlib.pyplot as plt
 import bot.util.database as db
 import csv
 
@@ -14,6 +15,7 @@ class Statistics(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.main_color = discord.Colour(0x9d0df0)
 
     @commands.group(name="stats", aliases=["statistics", "stat"])
     @commands.guild_only()
@@ -123,7 +125,7 @@ class Statistics(commands.Cog):
         embed = discord.Embed(
             title=f"Past {interval} for {guild.name}",
             description=description,
-            colour=discord.Colour(0x9d0df0)
+            colour=self.main_color
         )
         return embed
 
@@ -139,21 +141,28 @@ class Statistics(commands.Cog):
             people[e[key]] += e["amount"]
         return people.most_common(n)
 
-    def human(self, total_seconds):
-        seconds = total_seconds % 60
-        minutes = (total_seconds // 60) % 60
-        hours = total_seconds // 60 // 60 % 24
-        days = total_seconds // 60 // 60 // 24
-        builder = []
-        if days > 0:
-            builder.append(f"{int(days)} days")
-        if hours > 0:
-            builder.append(f"{int(hours)} hours")
-        if minutes > 0:
-            builder.append(f"{int(minutes)} minutes")
-        if seconds > 0:
-            builder.append(f"{int(seconds)} seconds")
-        return ", ".join(builder)
+    @stats.command(name="plot")
+    async def plot(self, ctx: Context):
+        command = "SELECT * FROM messages WHERE guild_id = {0} AND user_id = {1} AND time >= NOW() at time zone 'utc' - INTERVAL '{2}' ORDER BY time;"
+        command = command.format(str(ctx.guild.id), str(ctx.author.id), '24 HOURS')
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+            entries = con.fetchall()
+        x = []
+        y = []
+        for e in entries:
+            x.append(e['time'])
+            y.append(e["amount"])
+        fig, ax = plt.subplots(ncols=1, nrows=1)
+        fig: plt.Figure
+        ax: plt.Axes
+        ax.plot(x, y)
+        fig.autofmt_xdate()
+        buffer = BytesIO()
+        fig.savefig(buffer, format="png")
+        buffer.seek(0)
+        await ctx.send("Graph of today", file=discord.File(fp=buffer, filename="graph.png"))
+
 
 def setup(bot):
     bot.add_cog(Statistics(bot))

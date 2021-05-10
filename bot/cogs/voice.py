@@ -2,28 +2,11 @@ from dateutil.tz import gettz
 from discord.ext import commands
 import discord
 import bot.util.database as db
-from datetime import datetime, timedelta
-from pytz import timezone
+from datetime import datetime
+import bot.util.time_util as tutil
 
 
 from bot import synth_bot
-
-
-def round_time(dt=None, round_to=30 * 60):
-    """Round a datetime object to any time lapse in seconds
-   dt : datetime.datetime object, default now.
-   roundTo : Closest number of seconds to round to, default 1 minute.
-   Author: Thierry Husson 2012 - Use it as you want but don't blame me.
-   """
-    if dt is None:
-        zone = timezone('UTC')
-        utc = timezone('UTC')
-        dt = utc.localize(datetime.now())
-        dt = dt.astimezone(zone)
-
-    seconds = (dt.replace(tzinfo=None) - dt.replace(tzinfo=None, hour=0, minute=0, second=0)).seconds
-    rounding = (seconds + round_to / 2) // round_to * round_to
-    return dt + timedelta(0, rounding - seconds, -dt.microsecond)
 
 
 class VoiceTable(db.Table, table_name="voice"):
@@ -51,7 +34,7 @@ class VoiceLog:
         self.member_id = member_id
         self.channel_id = channel_id
         self.guild_id = guild_id
-        self.start = round_time(datetime.now(gettz('UTC')), 1)
+        self.start = tutil.round_time(datetime.now(gettz('UTC')), 1)
         self.stop = None
 
     def has_stopped(self):
@@ -60,7 +43,7 @@ class VoiceLog:
         return True
 
     def force_stop(self):
-        self.stop = round_time(datetime.now(gettz('UTC')), 1)
+        self.stop = tutil.round_time(datetime.now(gettz('UTC')), 1)
 
     def stopped_or_now(self):
         if self.has_stopped():
@@ -101,11 +84,11 @@ class Voice(commands.Cog):
         elements = []
         element_format = "({0}, {1}, {2}, {3}, {4})"
         for c in self.cache:
-            dif = c.stopped_or_now() - c.start
+            dif = c.stopped_or_now() - c.degrees
             minutes = dif.total_seconds() // 60
             if minutes < 1:
                 continue
-            time_str = c.start.strftime("'%d-%m-%Y %H:%M:%S'")
+            time_str = c.degrees.strftime("'%Y-%m-%d %H:%M:%S'")
             elements.append(element_format.format(c.guild_id, c.channel_id, c.member_id, time_str, f"'{dif.total_seconds()} SECONDS'"))
         if len(elements) == 0:
             return
