@@ -1,0 +1,8 @@
+git+https://github.com/Rapptz/discord.py
+git+https://github.com/Rapptz/discord-ext-menus
+discord~=1.0.1
+async-timeout==3.0.1
+toml~=0.10.2
+asyncio~=3.4.3
+python-dateutil~=2.8.1
+pytz~=2020.5
