@@ -177,7 +177,7 @@ class Statistics(commands.Cog):
         return embed
 
     @stats.command(name="voice")
-    async def messages(self, ctx: Context, selection: StatConverter = None):
+    async def voice(self, ctx: Context, selection: StatConverter = None):
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
 

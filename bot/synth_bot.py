@@ -25,7 +25,7 @@ class SynthBot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = True
         intents.guilds = True
-        super().__init__(command_prefix=']', intents=intents, description=description,
+        super().__init__(command_prefix='~', intents=intents, description=description,
                          case_insensitive=True, owner_id=bot.config['owner_id'], allowed_mentions=allowed_mentions)
         self.boot = datetime.now()
 
