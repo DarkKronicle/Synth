@@ -81,6 +81,7 @@ class Voice(commands.Cog):
     async def push(self):
         if len(self.cache) == 0:
             return
+        print(self.cache)
         elements = []
         element_format = "({0}, {1}, {2}, {3}, {4})"
         for c in self.cache:
@@ -92,6 +93,7 @@ class Voice(commands.Cog):
             elements.append(element_format.format(c.guild_id, c.channel_id, c.member_id, time_str, f"'{dif.total_seconds()} SECONDS'"))
         if len(elements) == 0:
             return
+        print(elements)
         command = "INSERT INTO voice(guild_id, channel_id, user_id, time, amount) VALUES {0} " \
                   "ON CONFLICT ON CONSTRAINT unique_voice" \
                   " DO UPDATE SET amount = EXCLUDED.amount;"

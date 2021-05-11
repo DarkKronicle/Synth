@@ -215,7 +215,7 @@ class Statistics(commands.Cog):
             for c, amount in self.time(entries, "channel_id", n=5):
                 i += 1
                 formatted_channels.append(f"`{i}.` <#{c}> - `{tutil.human(amount // 1)}`")
-            description += f"**Voice | Top 5 Users**\n" + "\n".join(formatted_channels)
+            description += f"\n\n**Voice | Top 5 Channels**\n" + "\n".join(formatted_channels)
         embed = discord.Embed(
             title=f"Past {interval} for {selection.get_name()}",
             description=description,
