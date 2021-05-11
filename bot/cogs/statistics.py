@@ -63,10 +63,14 @@ class StatConverter(commands.Converter):
         if low == "guild":
             return StatisticType(guild=ctx.guild, channel=ctx.channel)
         try:
-            channel = await commands.GuildChannelConverter().convert(ctx, argument)
+            channel = await commands.TextChannelConverter().convert(ctx, argument)
             return StatisticType(channel=channel, guild=ctx.guild)
         except commands.errors.ChannelNotFound:
-            pass
+            try:
+                channel = await commands.VoiceChannelConverter().convert(ctx, argument)
+                return StatisticType(channel=channel, guild=ctx.guild)
+            except commands.errors.ChannelNotFound:
+                pass
         try:
             member = await commands.MemberConverter().convert(ctx, argument)
             return StatisticType(channel=ctx.channel, guild=ctx.guild, member=member)
