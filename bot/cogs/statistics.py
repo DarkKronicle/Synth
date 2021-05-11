@@ -135,7 +135,7 @@ class Statistics(commands.Cog):
             con.execute(command)
             entries = con.fetchall()
         embed = await self.get_message_embed(selection, entries=entries)
-        plot = await self.plot_24_hour_total(entries=entries)
+        plot = await self.plot_24_hour_messages(entries=entries)
         embed.set_image(url="attachment://graph.png")
         return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
 
@@ -176,30 +176,48 @@ class Statistics(commands.Cog):
         embed.set_footer(text=time_str)
         return embed
 
-    async def get_voice_embed(self, guild, *, interval="24 Hours"):
-        command = "SELECT * FROM voice WHERE guild_id = {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
-        command = command.format(str(guild.id), interval)
+    @stats.command(name="voice")
+    async def messages(self, ctx: Context, selection: StatConverter = None):
+        if selection is None:
+            selection = StatisticType(guild=ctx.guild)
+
+        command = "SELECT * FROM voice WHERE {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
+        command = command.format(selection.get_condition(), '24 HOURS')
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
+        embed = await self.get_voice_embed(selection, entries=entries)
+        plot = await self.plot_24_hour_voice(entries=entries)
+        embed.set_image(url="attachment://graph.png")
+        return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
 
-        formatted_people = []
-        i = 0
-        for p, amount in self.time(entries, "user_id", n=5):
-            i += 1
-            formatted_people.append(f"`{i}.` <@{p}> - `{tutil.human(amount // 1)}`")
+    async def get_voice_embed(self, selection, *, interval="24 Hours", entries=None):
+        if entries is None:
+            command = "SELECT * FROM voice WHERE guild_id = {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
+            command = command.format(selection.get_condition(), interval)
+            async with db.MaybeAcquire() as con:
+                con.execute(command)
+                entries = con.fetchall()
 
-        formatted_channels = []
-        i = 0
-        for c, amount in self.time(entries, "channel_id", n=5):
-            i += 1
-            formatted_channels.append(f"`{i}.` <#{c}> - `{self.human(amount // 1)}`")
+        description = ""
+        if not selection.is_member():
+            formatted_people = []
+            i = 0
+            for p, amount in self.time(entries, "user_id", n=5):
+                i += 1
+                formatted_people.append(f"`{i}.` <@{p}> - `{tutil.human(amount // 1)}`")
+            description += "\n\n **Voice | Top 5 Users**\n" \
+                            + "\n".join(formatted_people)
 
-        description = f"**Messages | Top 5 Users**\n" + "\n".join(
-            formatted_people) + "\n\n **Messages | Top 5 Channels**\n" \
-                      + "\n".join(formatted_channels)
+        if not selection.is_channel():
+            formatted_channels = []
+            i = 0
+            for c, amount in self.time(entries, "channel_id", n=5):
+                i += 1
+                formatted_channels.append(f"`{i}.` <#{c}> - `{tutil.human(amount // 1)}`")
+            description += f"**Voice | Top 5 Users**\n" + "\n".join(formatted_channels)
         embed = discord.Embed(
-            title=f"Past {interval} for {guild.name}",
+            title=f"Past {interval} for {selection.get_name()}",
             description=description,
             colour=self.main_color
         )
@@ -217,7 +235,7 @@ class Statistics(commands.Cog):
             people[e[key]] += e["amount"]
         return people.most_common(n)
 
-    async def plot_24_hour_total(self, entries):
+    async def plot_24_hour_messages(self, entries):
 
         # Amount of messages per time
         data = Counter()
@@ -228,7 +246,8 @@ class Statistics(commands.Cog):
 
         plt.style.use('dark_background')
         fig, ax = plt.subplots(ncols=1, nrows=1)
-        ax.xaxis.set_major_locator(md.HourLocator(interval=4))
+        ax.xaxis.set_major_locator(md.HourLocator(interval=2))
+        ax.xaxis.set_minor_locator(md.HourLocator(interval=1))
         date_fm = md.DateFormatter('%H:%M')
         ax.xaxis.set_major_formatter(date_fm)
         ax.yaxis.grid(color="white", alpha=0.2)
@@ -239,6 +258,42 @@ class Statistics(commands.Cog):
 
         ax.set_xlabel("Time (UTC)")
         ax.set_ylabel("Messages")
+        _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
+                   color=str(self.main_color))
+        fig.autofmt_xdate()
+
+        buffer = BytesIO()
+        fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
+        buffer.seek(0)
+        return buffer
+
+    async def plot_24_hour_voice(self, entries):
+        data = Counter()
+        logged = {}
+        data[datetime.now()] = 0
+        data[datetime.now() - timedelta(days=1)] = 0
+        for e in entries:
+            time = tutil.round_time(e['time'], 60 * 30)
+            if time not in logged:
+                logged[time] = []
+            if e['user_id'] not in logged[time]:
+                data[time] += 1
+                logged[time].append(e['user_id'])
+
+        plt.style.use('dark_background')
+        fig, ax = plt.subplots(ncols=1, nrows=1)
+        ax.xaxis.set_major_locator(md.HourLocator(interval=2))
+        ax.xaxis.set_minor_locator(md.HourLocator(interval=1))
+        date_fm = md.DateFormatter('%H:%M')
+        ax.xaxis.set_major_formatter(date_fm)
+        ax.yaxis.grid(color="white", alpha=0.2)
+
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+
+        ax.set_xlabel("Time (UTC)")
+        ax.set_ylabel("Amount in Voice Channel")
         _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
                    color=str(self.main_color))
         fig.autofmt_xdate()
