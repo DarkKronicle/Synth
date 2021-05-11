@@ -2,6 +2,9 @@ from collections import Counter
 from datetime import datetime, timedelta
 from io import StringIO, BytesIO
 
+from dateutil.tz import gettz
+
+import bot.util.time_util as tutil
 from discord.ext import commands
 import discord
 import matplotlib.pyplot as plt
@@ -10,6 +13,66 @@ import bot.util.database as db
 import csv
 
 from bot.util.context import Context
+
+
+class StatisticType:
+
+    def __init__(self, *, guild=None, channel=None, member=None):
+        self.guild = guild
+        self.channel = channel
+        self.member = member
+
+    def is_member(self):
+        return self.member is not None
+
+    def is_channel(self):
+        return self.channel is not None and self.member is None
+
+    def is_guild(self):
+        return self.guild is not None and self.channel is None and self.member is None
+
+    def data(self):
+        if self.is_member():
+            return self.member
+        if self.is_channel():
+            return self.channel
+        if self.is_guild():
+            return self.guild
+
+    def get_condition(self):
+        if self.is_member():
+            return f"guild_id = {self.guild.id} AND user_id = {self.member.id}"
+        if self.is_channel():
+            return f"channel_id = {self.channel.id}"
+        if self.is_guild():
+            return f"guild_id = {self.guild.id}"
+
+    def get_name(self):
+        if self.is_member():
+            return str(self.member)
+        if self.is_channel():
+            return self.channel.name
+        if self.is_guild():
+            return self.guild.name
+
+
+class StatConverter(commands.Converter):
+
+    async def convert(self, ctx: Context, argument):
+        low = argument.lower()
+        if low == "guild":
+            return StatisticType(guild=ctx.guild, channel=ctx.channel)
+        try:
+            channel = await commands.GuildChannelConverter().convert(ctx, argument)
+            return StatisticType(channel=channel, guild=ctx.guild)
+        except commands.errors.ChannelNotFound:
+            pass
+        try:
+            member = await commands.MemberConverter().convert(ctx, argument)
+            return StatisticType(channel=ctx.channel, guild=ctx.guild, member=member)
+        except commands.errors.MemberNotFound:
+            pass
+        return None
 
 
 class Statistics(commands.Cog):
@@ -61,47 +124,56 @@ class Statistics(commands.Cog):
         file = discord.File(fp=buffer, filename="data.csv")
         await ctx.send(f"Here's the data for {ctx.guild.name}! Total of `{i}` entries.", file=file)
 
-    @stats.command(name="today")
-    async def total_today(self, ctx: Context, type: str = None):
-        if type is None:
-            return await ctx.send("Please specify a type! `messages` `voice`")
+    @stats.command(name="messages")
+    async def messages(self, ctx: Context, selection: StatConverter = None):
+        if selection is None:
+            selection = StatisticType(guild=ctx.guild)
 
-        if type == "messages":
-            embed = await self.get_message_embed(ctx.guild)
-            plot = await self.plot_24_hour_total(f"guild_id = {ctx.guild.id}")
-            embed.set_image(url="attachment://graph.png")
-            return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
-
-        if type == "voice":
-            embed = await self.get_voice_embed(ctx.guild)
-            return await ctx.send(embed=embed)
-
-    async def get_message_embed(self, guild, *, interval="24 Hours"):
-        command = "SELECT * FROM messages WHERE guild_id = {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
-        command = command.format(str(guild.id), interval)
+        command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
+        command = command.format(selection.get_condition(), '24 HOURS')
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
+        embed = await self.get_message_embed(selection, entries=entries)
+        plot = await self.plot_24_hour_total(entries=entries)
+        embed.set_image(url="attachment://graph.png")
+        return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
 
-        formatted_people = []
-        i = 0
-        for p, amount in self.count(entries, "user_id", n=5):
-            i += 1
-            formatted_people.append(f"`{i}.` <@{p}> - `{amount} messages`")
+    async def get_message_embed(self, selection, *, interval="24 Hours", entries=None):
+        if entries is None:
+            command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
+            command = command.format(selection.get_condition(), interval)
+            async with db.MaybeAcquire() as con:
+                con.execute(command)
+                entries = con.fetchall()
 
-        formatted_channels = []
-        i = 0
-        for c, amount in self.count(entries, "channel_id", n=5):
-            i += 1
-            formatted_channels.append(f"`{i}.` <#{c}> - `{amount} messages`")
+        description = ""
+        if not selection.is_member():
+            formatted_people = []
+            i = 0
+            for p, amount in self.count(entries, "user_id", n=5):
+                i += 1
+                formatted_people.append(f"`{i}.` <@{p}> - `{amount} messages`")
+            description += f"**Messages | Top 5 Users**\n" + "\n".join(formatted_people)
 
-        description = f"**Messages | Top 5 Users**\n" + "\n".join(formatted_people) + "\n\n **Messages | Top 5 Channels**\n" \
-                      + "\n".join(formatted_channels)
+        if not selection.is_channel():
+            formatted_channels = []
+            i = 0
+            for c, amount in self.count(entries, "channel_id", n=5):
+                i += 1
+                formatted_channels.append(f"`{i}.` <#{c}> - `{amount} messages`")
+            description += "\n\n **Messages | Top 5 Channels**\n" \
+                           + "\n".join(formatted_channels)
+
         embed = discord.Embed(
-            title=f"Past {interval} for {guild.name}",
+            title=f"Past {interval} for {selection.get_name()}",
             description=description,
             colour=discord.Colour(0x9d0df0)
         )
+        time = datetime.now(gettz('UTC'))
+        time_str = time.strftime("%H:%M:%S UTC")
+
+        embed.set_footer(text=time_str)
         return embed
 
     async def get_voice_embed(self, guild, *, interval="24 Hours"):
@@ -115,7 +187,7 @@ class Statistics(commands.Cog):
         i = 0
         for p, amount in self.time(entries, "user_id", n=5):
             i += 1
-            formatted_people.append(f"`{i}.` <@{p}> - `{self.human(amount // 1)}`")
+            formatted_people.append(f"`{i}.` <@{p}> - `{tutil.human(amount // 1)}`")
 
         formatted_channels = []
         i = 0
@@ -123,7 +195,8 @@ class Statistics(commands.Cog):
             i += 1
             formatted_channels.append(f"`{i}.` <#{c}> - `{self.human(amount // 1)}`")
 
-        description = f"**Messages | Top 5 Users**\n" + "\n".join(formatted_people) + "\n\n **Messages | Top 5 Channels**\n" \
+        description = f"**Messages | Top 5 Users**\n" + "\n".join(
+            formatted_people) + "\n\n **Messages | Top 5 Channels**\n" \
                       + "\n".join(formatted_channels)
         embed = discord.Embed(
             title=f"Past {interval} for {guild.name}",
@@ -144,13 +217,7 @@ class Statistics(commands.Cog):
             people[e[key]] += e["amount"]
         return people.most_common(n)
 
-    async def plot_24_hour_total(self, condition):
-        command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' " \
-                  "- INTERVAL '{1}' ORDER BY time; "
-        command = command.format(condition, '24 HOURS')
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
+    async def plot_24_hour_total(self, entries):
 
         # Amount of messages per time
         data = Counter()
@@ -161,7 +228,7 @@ class Statistics(commands.Cog):
 
         plt.style.use('dark_background')
         fig, ax = plt.subplots(ncols=1, nrows=1)
-        ax.xaxis.set_major_locator(md.HourLocator(interval=3))
+        ax.xaxis.set_major_locator(md.HourLocator(interval=4))
         date_fm = md.DateFormatter('%H:%M')
         ax.xaxis.set_major_formatter(date_fm)
         ax.yaxis.grid(color="white", alpha=0.2)
@@ -172,7 +239,8 @@ class Statistics(commands.Cog):
 
         ax.set_xlabel("Time (UTC)")
         ax.set_ylabel("Messages")
-        _ = ax.bar(data.keys(), data.values(), width=1/48, alpha=1, align='edge', edgecolor=str(self.main_color), color=str(self.main_color))
+        _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
+                   color=str(self.main_color))
         fig.autofmt_xdate()
 
         buffer = BytesIO()
