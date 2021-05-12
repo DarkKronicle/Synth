@@ -7,7 +7,7 @@ import bot.synth_bot as synth_bot
 
 class GuildConfigTable(db.Table, table_name='guild_config'):
     guild_id = db.Column(db.Integer(big=True), unique=True, index=True)
-    prefix = db.Column(db.String(length=12), default="'s~'")
+    prefix = db.Column(db.String(length=12), default="s~")
 
 
 class GuildConfig(commands.Cog):

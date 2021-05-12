@@ -279,6 +279,8 @@ class Statistics(commands.Cog):
         buffer = BytesIO()
         fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
         buffer.seek(0)
+        fig.clear()
+        plt.close(fig)
         return buffer
 
     async def plot_24_hour_voice(self, entries):
@@ -315,6 +317,8 @@ class Statistics(commands.Cog):
         buffer = BytesIO()
         fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
         buffer.seek(0)
+        fig.clear()
+        plt.close(fig)
         return buffer
 
 
