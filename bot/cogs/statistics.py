@@ -290,11 +290,15 @@ class Statistics(commands.Cog):
         data[datetime.now() - timedelta(days=1)] = 0
         for e in entries:
             time = tutil.round_time(e['time'], 60 * 30)
-            if time not in logged:
-                logged[time] = []
-            if e['user_id'] not in logged[time]:
-                data[time] += 1
-                logged[time].append(e['user_id'])
+            added = 0
+            while added < e['amount'].total_seconds():
+                if time not in logged:
+                    logged[time] = []
+                if e['user_id'] not in logged[time]:
+                    data[time] += 1
+                    logged[time].append(e['user_id'])
+                time = time + timedelta(minutes=30)
+                added += 60 * 30
 
         plt.style.use('dark_background')
         fig, ax = plt.subplots(ncols=1, nrows=1)
