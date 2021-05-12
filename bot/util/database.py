@@ -16,6 +16,13 @@ from collections import OrderedDict
 import psycopg2
 import psycopg2.extras
 import datetime
+import random
+import string
+
+
+def random_key(*, min_num=5, max_num=10):
+    length = random.SystemRandom().randint(min_num, max_num)
+    return "$" + ''.join(''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(length))) + "$"
 
 
 class SchemaError(Exception):

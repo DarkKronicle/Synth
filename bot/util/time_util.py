@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from dateutil.tz import gettz
 from pytz import timezone
 
 
@@ -39,3 +40,31 @@ def round_time(dt=None, round_to=30 * 60):
 
 def get_time_until_minute():
     return 60 - datetime.now().second
+
+
+def floor_time(*, top=30):
+    time = datetime.now(gettz('UTC'))
+    num = time.minute
+    while True:
+        if num % top == 0:
+            break
+        num -= 1
+    while num < 0:
+        num += 60
+        time = time.replace(hour=time.hour - 1)
+    time = time.replace(minute=num, second=0, microsecond=0)
+    return time
+
+
+def ceil_time(*, top=30):
+    time = datetime.now(gettz('UTC'))
+    num = time.minute
+    while True:
+        if num % top == 0:
+            break
+        num += 1
+    while num > 0:
+        num -= 60
+        time = time.replace(hour=time.hour + 1)
+    time = time.replace(minute=num, second=0, microsecond=0)
+    return time

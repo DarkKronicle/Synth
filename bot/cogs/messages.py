@@ -7,7 +7,7 @@ import bot.util.database as db
 from bot.util.context import Context
 import bot.util.storage_cache as storage_cache
 
-from dateutil.tz import gettz
+import bot.util.time_util as tutil
 
 
 class MessagesTable(db.Table, table_name='messages'):
@@ -62,7 +62,7 @@ class Messages(commands.Cog):
         if len(self.cache) == 0:
             return
         insert = []
-        time = self.floor_time(top=30)
+        time = tutil.floor_time(top=30)
         time_str = time.strftime("'%Y-%m-%d %H:%M:%S'")
         value = "({0}, {1}, {2}, {3}, {4})"
         for data, amount in self.cache.items():
@@ -75,20 +75,6 @@ class Messages(commands.Cog):
         async with db.MaybeAcquire() as con:
             con.execute(command)
         self.cache.clear()
-
-    @staticmethod
-    def floor_time(*, top=30):
-        time = datetime.datetime.now(gettz('UTC'))
-        num = time.minute
-        while True:
-            if num % top == 0:
-                break
-            num -= 1
-        while num < 0:
-            num += 60
-            time = time.replace(hour=time.hour - 1)
-        time = time.replace(minute=num, second=0, microsecond=0)
-        return time
 
 
 def setup(bot):

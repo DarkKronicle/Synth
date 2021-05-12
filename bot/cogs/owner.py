@@ -27,6 +27,7 @@ class Owner(commands.Cog):
 
     @commands.command(name="*pfp")
     async def set_pfp(self, ctx: Context, degrees: int = 0):
+        self.degrees = degrees
         await self.set_pfp_degrees(degrees)
         await ctx.send("Set my profile pic boss!")
 

@@ -138,12 +138,12 @@ class Statistics(commands.Cog):
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
-        embed = await self.get_message_embed(selection, entries=entries)
+        embed = await self.get_message_embed(ctx, selection, entries=entries)
         plot = await self.plot_24_hour_messages(entries=entries)
         embed.set_image(url="attachment://graph.png")
         return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
 
-    async def get_message_embed(self, selection, *, interval="24 Hours", entries=None):
+    async def get_message_embed(self, ctx, selection, *, interval="24 Hours", entries=None):
         if entries is None:
             command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
             command = command.format(selection.get_condition(), interval)
@@ -151,7 +151,7 @@ class Statistics(commands.Cog):
                 con.execute(command)
                 entries = con.fetchall()
 
-        description = ""
+        description = f"Total of `{self.count_all(entries)} messages`\n\n"
         if not selection.is_member():
             formatted_people = []
             i = 0
@@ -169,10 +169,9 @@ class Statistics(commands.Cog):
             description += "\n\n **Messages | Top 5 Channels**\n" \
                            + "\n".join(formatted_channels)
 
-        embed = discord.Embed(
+        embed = ctx.create_embed(
             title=f"Past {interval} for {selection.get_name()}",
-            description=description,
-            colour=discord.Colour(0x9d0df0)
+            description=description
         )
         time = datetime.now(gettz('UTC'))
         time_str = time.strftime("%H:%M:%S UTC")
@@ -190,12 +189,12 @@ class Statistics(commands.Cog):
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
-        embed = await self.get_voice_embed(selection, entries=entries)
+        embed = await self.get_voice_embed(ctx, selection, entries=entries)
         plot = await self.plot_24_hour_voice(entries=entries)
         embed.set_image(url="attachment://graph.png")
         return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
 
-    async def get_voice_embed(self, selection, *, interval="24 Hours", entries=None):
+    async def get_voice_embed(self, ctx, selection, *, interval="24 Hours", entries=None):
         if entries is None:
             command = "SELECT * FROM voice WHERE guild_id = {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
             command = command.format(selection.get_condition(), interval)
@@ -203,7 +202,7 @@ class Statistics(commands.Cog):
                 con.execute(command)
                 entries = con.fetchall()
 
-        description = ""
+        description = f"Total of `{tutil.human(self.time_all(entries))}`"
         if not selection.is_member():
             formatted_people = []
             i = 0
@@ -220,10 +219,9 @@ class Statistics(commands.Cog):
                 i += 1
                 formatted_channels.append(f"`{i}.` <#{c}> - `{tutil.human(amount // 1)}`")
             description += f"\n\n**Voice | Top 5 Channels**\n" + "\n".join(formatted_channels)
-        embed = discord.Embed(
+        embed = ctx.create_embed(
             title=f"Past {interval} for {selection.get_name()}",
-            description=description,
-            colour=self.main_color
+            description=description
         )
         return embed
 
@@ -233,11 +231,23 @@ class Statistics(commands.Cog):
             time[e[key]] += e["amount"].total_seconds()
         return time.most_common(n)
 
+    def time_all(self, entries):
+        i = 0
+        for e in entries:
+            i += e["amount"].total_seconds()
+        return i
+
     def count(self, entries, key, *, n=10):
         people = Counter()
         for e in entries:
             people[e[key]] += e["amount"]
         return people.most_common(n)
+
+    def count_all(self, entries):
+        i = 0
+        for e in entries:
+            i += e["amount"]
+        return i
 
     async def plot_24_hour_messages(self, entries):
 

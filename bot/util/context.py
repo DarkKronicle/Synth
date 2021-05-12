@@ -12,6 +12,9 @@ import bot.util.database as database
 
 
 class Context(commands.Context):
+
+    MAIN_COLOR = discord.Colour(0x9d0df0)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.connection = None
@@ -220,3 +223,17 @@ class Context(commands.Context):
         elif result == 1:
             em = "😦"
         await self.message.add_reaction(em)
+
+    def create_embed(self, *, description=discord.Embed.Empty, title=discord.Embed.Empty, error=False):
+        cmd: commands.Command = self.command
+        command_name = cmd.cog_name + " => "
+        subs = cmd.qualified_name.split(" ")
+        command_name += " > ".join(subs)
+        embed = discord.Embed(
+            title=title,
+            description=description,
+            colour=discord.Colour.red() if error else self.MAIN_COLOR
+        )
+        embed.set_author(name=command_name)
+        embed.set_footer(text=str(self.author), icon_url=self.author.avatar_url)
+        return embed

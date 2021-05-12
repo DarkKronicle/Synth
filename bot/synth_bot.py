@@ -1,6 +1,8 @@
 import discord
 import bot.util.time_util as tutil
 from discord.ext import commands, tasks
+import bot.util.storage_cache as cache
+import bot.util.database as db
 
 import bot
 
@@ -10,8 +12,28 @@ import traceback
 from bot.util.context import Context
 
 cogs_dir = "bot.cogs"
-startup_extensions = ["utility", "messages", "statistics", "voice", "owner"]
+startup_extensions = ["utility", "messages", "statistics", "voice", "owner", "guild_config"]
 description = "Statistics incarnate"
+
+
+async def get_prefix(bot_obj, message: discord.Message):
+    user_id = bot_obj.user.id
+    prefixes = ["s~", f"<@{user_id}> ", bot_obj.user.mention + " "]
+    space = ["s~ ", f"<@{user_id}> ", bot_obj.user.mention + " "]
+    if message.guild is None:
+        prefix = "~"
+    else:
+        prefix = await bot_obj.get_guild_prefix(message.guild.id)
+        if prefix is None:
+            prefix = "~"
+    content: str = message.content
+    if content.startswith("s~ "):
+        return space
+    if content.startswith(prefix + " "):
+        space.append(prefix + " ")
+        return space
+    prefixes.append(prefix)
+    return prefixes
 
 
 class SynthBot(commands.Bot):
@@ -25,7 +47,7 @@ class SynthBot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = True
         intents.guilds = True
-        super().__init__(command_prefix='~', intents=intents, description=description,
+        super().__init__(command_prefix=get_prefix, intents=intents, description=description,
                          case_insensitive=True, owner_id=bot.config['owner_id'], allowed_mentions=allowed_mentions)
         self.boot = datetime.now()
 
@@ -46,6 +68,17 @@ class SynthBot(commands.Bot):
         if isinstance(error, commands.CheckFailure):
             return
         raise error
+
+    @cache.cache(maxsize=640)
+    async def get_guild_prefix(self, guild_id):
+        command = "SELECT prefix FROM guild_config WHERE guild_id = {0};"
+        command = command.format(guild_id)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+            row = con.fetchone()
+        if row is None:
+            return None
+        return row['prefix']
 
     async def on_ready(self):
         self.setup_loop.start()
