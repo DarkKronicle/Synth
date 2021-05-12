@@ -11,16 +11,19 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as md
 import bot.util.database as db
 import csv
+import re
+import typing
 
 from bot.util.context import Context
 
 
 class StatisticType:
 
-    def __init__(self, *, guild=None, channel=None, member=None):
+    def __init__(self, *, guild=None, channel=None, member=None, _global=False):
         self.guild = guild
         self.channel = channel
         self.member = member
+        self._global = _global
 
     def is_member(self):
         return self.member is not None
@@ -30,6 +33,9 @@ class StatisticType:
 
     def is_guild(self):
         return self.guild is not None and self.channel is None and self.member is None
+
+    def is_global(self):
+        return self._global
 
     def data(self):
         if self.is_member():
@@ -46,6 +52,8 @@ class StatisticType:
             return f"channel_id = {self.channel.id}"
         if self.is_guild():
             return f"guild_id = {self.guild.id}"
+        if self.is_global():
+            return "time IS NOT NONE"
 
     def get_name(self):
         if self.is_member():
@@ -54,13 +62,17 @@ class StatisticType:
             return self.channel.name
         if self.is_guild():
             return self.guild.name
+        if self.is_global():
+            return "global"
 
 
 class StatConverter(commands.Converter):
 
     async def convert(self, ctx: Context, argument):
         low = argument.lower()
-        if low == "guild":
+        if low == "global" and await ctx.bot.is_owner(ctx.author):
+            return StatisticType(_global=True)
+        if low == "guild" or low == "server":
             return StatisticType(guild=ctx.guild, channel=ctx.channel)
         try:
             channel = await commands.TextChannelConverter().convert(ctx, argument)
@@ -76,6 +88,35 @@ class StatConverter(commands.Converter):
             return StatisticType(channel=ctx.channel, guild=ctx.guild, member=member)
         except commands.errors.MemberNotFound:
             pass
+        raise commands.errors.BadArgument()
+
+
+class IntervalConverter(commands.Converter):
+
+    DAY_REGEX = re.compile(r"(\d{1,2}) day(s)?")
+    WEEK_REGEX = re.compile(r"(\d{1,2}) week(s)?")
+    MONTH_REGEX = re.compile(r"(\d{1,2}) month(s)?")
+
+    async def convert(self, ctx: Context, argument):
+        low = argument.lower()
+        match: re.Match = self.DAY_REGEX.search(low)
+        if match:
+            days = int(match.group(1))
+            if days <= 0:
+                raise commands.errors.BadArgument("Days has to be greater than 0!")
+            return f"{days} days"
+        match: re.Match = self.WEEK_REGEX.search(low)
+        if match:
+            weeks = int(match.group(1))
+            if weeks <= 0:
+                raise commands.errors.BadArgument("Weeks has to be great than 0!")
+            return f"{weeks} weeks"
+        match: re.Match = self.MONTH_REGEX.search(low)
+        if match:
+            months = int(match.group(1))
+            if months >= 24 or months <= 0:
+                raise commands.errors.BadArgument("Months has to be above zero and below 24!")
+            return f"{months} months"
         return None
 
 
@@ -129,16 +170,18 @@ class Statistics(commands.Cog):
         await ctx.send(f"Here's the data for {ctx.guild.name}! Total of `{i}` entries.", file=file)
 
     @stats.command(name="messages")
-    async def messages(self, ctx: Context, selection: StatConverter = None):
+    async def messages(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = None):
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
+        if interval is None:
+            interval = '1 DAY'
 
         command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
-        command = command.format(selection.get_condition(), '24 HOURS')
+        command = command.format(selection.get_condition(), interval)
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
-        embed = await self.get_message_embed(ctx, selection, entries=entries)
+        embed = await self.get_message_embed(ctx, selection, entries=entries, interval=interval)
         plot = await self.plot_24_hour_messages(entries=entries)
         embed.set_image(url="attachment://graph.png")
         return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
@@ -253,11 +296,21 @@ class Statistics(commands.Cog):
 
         # Amount of messages per time
         data = Counter()
-        data[datetime.now()] = 0
-        data[datetime.now() - timedelta(days=1)] = 0
+        min_date = datetime.now()
+        max_date = datetime.now() - timedelta(hours=1)
         for e in entries:
+            min_date = min(min_date, e['time'])
+            max_date = max(max_date, e['time'])
             data[e['time']] += e["amount"]
-
+        if (max_date - min_date).days > 0:
+            keys = [k for k in data.keys()]
+            for k in keys:
+                data[k.replace(year=2020, month=1, day=1)] = data.pop(k)
+            data[datetime.now().replace(year=2020, month=1, day=1, minute=0, hour=0, second=0, microsecond=0)] = 0
+            data[datetime.now().replace(year=2020, month=1, day=2, minute=0, hour=0, second=0, microsecond=0)] = 0
+        else:
+            data[datetime.now()] = 0
+            data[datetime.now() - timedelta(days=1)] = 0
         plt.style.use('dark_background')
         fig, ax = plt.subplots(ncols=1, nrows=1)
         ax.xaxis.set_major_locator(md.HourLocator(interval=2))
