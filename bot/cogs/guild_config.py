@@ -25,7 +25,7 @@ class GuildConfig(commands.Cog):
         command = command.format(str(ctx.guild.id), db.random_key())
         async with db.MaybeAcquire() as con:
             con.execute(command, (prefix,))
-        self.bot.get_guild_prefix.invalidate_containing(ctx.guild.id)
+        self.bot.get_guild_prefix.invalidate(ctx.guild.id)
         await ctx.send(f"Updated prefix to `{prefix}`")
 
     @commands.command(name="prefix")

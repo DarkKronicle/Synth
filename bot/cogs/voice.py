@@ -70,7 +70,6 @@ class Voice(commands.Cog):
         self.bot.remove_loop("voiceupdate")
 
     def setup_voice(self):
-        print("Logging new voice values...")
         for g in self.bot.guilds:
             g: discord.Guild
             for v in g.voice_channels:
