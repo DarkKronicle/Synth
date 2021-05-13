@@ -12,7 +12,7 @@ import traceback
 from bot.util.context import Context
 
 cogs_dir = "bot.cogs"
-startup_extensions = ["utility", "messages", "statistics", "voice", "owner", "guild_config"]
+startup_extensions = ["utility", "messages", "statistics", "voice", "owner", "guild_config", "stat_channels"]
 description = "Statistics incarnate"
 
 
