@@ -174,7 +174,7 @@ class Statistics(commands.Cog):
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
         if interval is None:
-            interval = '1 DAY'
+            interval = '1 day'
 
         command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
         command = command.format(selection.get_condition(), interval)
@@ -223,16 +223,17 @@ class Statistics(commands.Cog):
         return embed
 
     @stats.command(name="voice")
-    async def voice(self, ctx: Context, selection: StatConverter = None):
+    async def voice(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = None):
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
-
+        if interval is None:
+            interval = "1 day"
         command = "SELECT * FROM voice WHERE {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
-        command = command.format(selection.get_condition(), '24 HOURS')
+        command = command.format(selection.get_condition(), interval)
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
-        embed = await self.get_voice_embed(ctx, selection, entries=entries)
+        embed = await self.get_voice_embed(ctx, selection, entries=entries, interval=interval)
         plot = await self.plot_24_hour_voice(entries=entries)
         embed.set_image(url="attachment://graph.png")
         return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
@@ -306,11 +307,15 @@ class Statistics(commands.Cog):
             keys = [k for k in data.keys()]
             for k in keys:
                 data[k.replace(year=2020, month=1, day=1)] = data.pop(k)
-            data[datetime.now().replace(year=2020, month=1, day=1, minute=0, hour=0, second=0, microsecond=0)] = 0
-            data[datetime.now().replace(year=2020, month=1, day=2, minute=0, hour=0, second=0, microsecond=0)] = 0
+            min_date = datetime(year=2020, month=1, day=1, minute=0, hour=0, second=0, microsecond=0)
+            data[min_date] = 0
+            max_date = datetime(year=2020, month=1, day=2, minute=0, hour=0, second=0, microsecond=0)
+            data[max_date] = 0
         else:
-            data[datetime.now()] = 0
-            data[datetime.now() - timedelta(days=1)] = 0
+            max_date = tutil.get_utc() + timedelta(minutes=30)
+            min_date = max_date - timedelta(days=1, minutes=30)
+            data[max_date] = 0
+            data[min_date] = 0
         plt.style.use('dark_background')
         fig, ax = plt.subplots(ncols=1, nrows=1)
         ax.xaxis.set_major_locator(md.HourLocator(interval=2))
@@ -329,6 +334,8 @@ class Statistics(commands.Cog):
                    color=str(self.main_color))
         fig.autofmt_xdate()
 
+        plt.xlim([min_date, max_date])
+
         buffer = BytesIO()
         fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
         buffer.seek(0)
@@ -339,12 +346,16 @@ class Statistics(commands.Cog):
     async def plot_24_hour_voice(self, entries):
         data = Counter()
         logged = {}
+        min_date = datetime.now()
+        max_date = datetime.now() - timedelta(hours=1)
         data[datetime.now()] = 0
         data[datetime.now() - timedelta(days=1)] = 0
         for e in entries:
             time = tutil.round_time(e['time'], 60 * 30)
             added = 0
+            min_date = min(min_date, e['time'])
             while added < e['amount'].total_seconds():
+                max_date = max(max_date, time)
                 if time not in logged:
                     logged[time] = []
                 if e['user_id'] not in logged[time]:
@@ -352,7 +363,19 @@ class Statistics(commands.Cog):
                     logged[time].append(e['user_id'])
                 time = time + timedelta(minutes=30)
                 added += 60 * 30
-
+        if (max_date - min_date).days > 0:
+            keys = [k for k in data.keys()]
+            for k in keys:
+                data[k.replace(year=2020, month=1, day=1)] = data.pop(k)
+            min_date = datetime(year=2020, month=1, day=1, minute=0, hour=0, second=0, microsecond=0)
+            data[min_date] = 0
+            max_date = datetime(year=2020, month=1, day=2, minute=0, hour=0, second=0, microsecond=0)
+            data[max_date] = 0
+        else:
+            max_date = tutil.get_utc() + timedelta(minutes=30)
+            min_date = max_date - timedelta(days=1, minutes=30)
+            data[max_date] = 0
+            data[min_date] = 0
         plt.style.use('dark_background')
         fig, ax = plt.subplots(ncols=1, nrows=1)
         ax.xaxis.set_major_locator(md.HourLocator(interval=2))
@@ -371,6 +394,7 @@ class Statistics(commands.Cog):
                    color=str(self.main_color))
         fig.autofmt_xdate()
 
+        plt.xlim([min_date, max_date])
         buffer = BytesIO()
         fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
         buffer.seek(0)

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 from dateutil.tz import gettz
 from pytz import timezone
@@ -38,33 +38,39 @@ def round_time(dt=None, round_to=30 * 60):
     return dt + timedelta(0, rounding - seconds, -dt.microsecond)
 
 
+def get_utc():
+    return datetime.now(gettz('utc'))
+
+
 def get_time_until_minute():
     return 60 - datetime.now().second
 
 
-def floor_time(*, top=30):
-    time = datetime.now(gettz('UTC'))
-    num = time.minute
+def floor_time(*, top=30, t=None):
+    if t is None:
+        t = datetime.now(gettz('UTC'))
+    num = t.minute
     while True:
         if num % top == 0:
             break
         num -= 1
     while num < 0:
         num += 60
-        time = time.replace(hour=time.hour - 1)
-    time = time.replace(minute=num, second=0, microsecond=0)
-    return time
+        t = t.replace(hour=t.hour - 1)
+    t = t.replace(minute=num, second=0, microsecond=0)
+    return t
 
 
-def ceil_time(*, top=30):
-    time = datetime.now(gettz('UTC'))
-    num = time.minute
+def ceil_time(*, top=30, t=None):
+    if t is None:
+        t = datetime.now(gettz('UTC'))
+    num = t.minute
     while True:
         if num % top == 0:
             break
         num += 1
-    while num > 0:
+    while num > 60:
         num -= 60
-        time = time.replace(hour=time.hour + 1)
-    time = time.replace(minute=num, second=0, microsecond=0)
-    return time
+        t = t.replace(hour=t.hour + 1)
+    t = t.replace(minute=num, second=0, microsecond=0)
+    return t
