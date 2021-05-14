@@ -13,9 +13,10 @@ class StatChannels(commands.Cog):
     def cog_unload(self):
         self.bot.remove_loop("statchannels")
 
-    @commands.command(name="*refresh")
+    @commands.command(name="*refresh", hidden=True)
     @commands.is_owner()
     async def refresh(self, ctx):
+        """Forces a refresh of the statistic channels"""
         await self.refresh_channels()
         await ctx.check(0)
 

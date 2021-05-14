@@ -9,11 +9,12 @@ import bot
 from datetime import datetime
 import traceback
 
+from bot.cogs.help import HelpCommand
 from bot.util.context import Context
 
 cogs_dir = "bot.cogs"
-startup_extensions = ["utility", "messages", "statistics", "voice", "owner", "guild_config", "stat_channels"]
-description = "Statistics incarnate"
+startup_extensions = ["utility", "messages", "statistics", "voice", "owner", "guild_config", "stat_channels", "data"]
+description = "The open source discord statistic bot."
 
 
 async def get_prefix(bot_obj, message: discord.Message):
@@ -50,7 +51,7 @@ class SynthBot(commands.Bot):
         super().__init__(command_prefix=get_prefix, intents=intents, description=description,
                          case_insensitive=True, owner_id=bot.config['owner_id'], allowed_mentions=allowed_mentions)
         self.boot = datetime.now()
-
+        self.help_command = HelpCommand()
         for extension in startup_extensions:
             try:
                 self.load_extension(cogs_dir + "." + extension)
@@ -62,11 +63,28 @@ class SynthBot(commands.Bot):
     def run(self):
         super().run(bot.config['bot_token'], reconnect=True)
 
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx: Context, error):
         if isinstance(error, commands.CommandNotFound):
             return
         if isinstance(error, commands.CheckFailure):
             return
+        if isinstance(error, commands.CommandOnCooldown):
+            if await self.is_owner(ctx.author):
+                # We don't want me to be on cooldown.
+                return await ctx.reinvoke()
+            # Let people know when they can retry
+            embed = ctx.create_embed(
+                title="Command On Cooldown!",
+                description=f"This command is currently on cooldown. Try again in `{math.ceil(error.retry_after)}` "
+                            f"seconds.",
+                error=True
+            )
+            await ctx.delete()
+            await ctx.send(embed=embed, delete_after=15)
+            return
+        if isinstance(error, (commands.ArgumentParsingError, commands.BadArgument,
+                              commands.MemberNotFound, commands.ChannelNotFound)):
+            return await ctx.send(embed=ctx.create_embed(description=str(error), error=True), delete_after=15)
         raise error
 
     @cache.cache(maxsize=640)
@@ -131,3 +149,10 @@ class SynthBot(commands.Bot):
             return
         self.time_loop.start()
         self.setup_loop.stop()
+
+    def get_cog(self, name):
+        lower = name.lower()
+        for c in self.cogs.keys():
+            if c.lower() == lower:
+                return self.cogs[c]
+        return None

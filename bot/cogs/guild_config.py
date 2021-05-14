@@ -11,6 +11,7 @@ class GuildConfigTable(db.Table, table_name='guild_config'):
 
 
 class GuildConfig(commands.Cog):
+    """Configure and view server settings."""
 
     def __init__(self, bot):
         self.bot: synth_bot.SynthBot = bot
@@ -18,6 +19,13 @@ class GuildConfig(commands.Cog):
     @commands.command(name="!prefix")
     @checks.is_mod()
     async def prefix(self, ctx: Context, *, prefix: str = None):
+        """
+        Change's the server's prefix. The global prefix s~ will always be accessible.
+
+        Examples:
+              !prefix ~
+              !prefix {}
+        """
         if prefix is None or len(prefix) > 6 or len(prefix) == 0:
             return await ctx.send("You need to specify a prefix of max length 6 and minimum length 1!")
         command = "INSERT INTO guild_config(guild_id, prefix) VALUES ({0}, %s)" \
@@ -30,6 +38,9 @@ class GuildConfig(commands.Cog):
 
     @commands.command(name="prefix")
     async def get_prefix(self, ctx: Context):
+        """
+        Displays the server's current prefix.
+        """
         prefix = await self.bot.get_guild_prefix(ctx.guild.id)
         if prefix is None:
             prefix = "s~"

@@ -100,9 +100,10 @@ class Voice(commands.Cog):
             con.execute(command)
         self.cache = [c for c in self.cache if not c.has_stopped()]
 
-    @commands.command(name="*voicepush")
+    @commands.command(name="*voicepush", hidden=True)
     @commands.is_owner()
     async def voice_push(self, ctx):
+        """Updates voice chat information in the database."""
         await self.push()
         await ctx.check(0)
 

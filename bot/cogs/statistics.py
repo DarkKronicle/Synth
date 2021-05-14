@@ -1,6 +1,6 @@
 from collections import Counter
 from datetime import datetime, timedelta
-from io import StringIO, BytesIO
+from io import BytesIO
 
 from dateutil.tz import gettz
 
@@ -10,7 +10,6 @@ import discord
 import matplotlib.pyplot as plt
 import matplotlib.dates as md
 import bot.util.database as db
-import csv
 import re
 import typing
 
@@ -129,48 +128,24 @@ class Statistics(commands.Cog):
     @commands.group(name="stats", aliases=["statistics", "stat"])
     @commands.guild_only()
     async def stats(self, ctx: Context):
+        """
+        View statistics about the server.
+        """
         if ctx.invoked_subcommand is None:
             await ctx.send_help("stats")
 
-    @stats.group(name="export")
-    async def export(self, ctx: Context):
-        pass
+    @stats.command(name="messages", aliases=["msg", "message"])
+    async def messages(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = "1 day"):
+        """
+        Pulls up a menu with statistics containing chat information.
 
-    @export.command(name="all")
-    async def export_all(self, ctx: Context):
-        await ctx.trigger_typing()
-        command = "SELECT * FROM messages WHERE guild_id = {0};"
-        command = command.format(str(ctx.guild.id))
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
-        buffer = StringIO()
-        writer = csv.writer(buffer)
-        i = 0
-        id_to_name = {}
-        for e in entries:
-            i += 1
-            channel_id = e["channel_id"]
-            user_id = e["user_id"]
-            if user_id not in id_to_name:
-                user = ctx.guild.get_member(user_id)
-                if user is not None:
-                    id_to_name[user_id] = str(user)
-                else:
-                    id_to_name[user_id] = str(user_id)
-            if channel_id not in id_to_name:
-                channel = ctx.guild.get_channel(channel_id)
-                if channel is not None:
-                    id_to_name[channel_id] = channel.name
-                else:
-                    id_to_name[channel_id] = str(channel_id)
-            writer.writerow([id_to_name[channel_id], id_to_name[user_id], e["amount"], e["time"]])
-        buffer.seek(0)
-        file = discord.File(fp=buffer, filename="data.csv")
-        await ctx.send(f"Here's the data for {ctx.guild.name}! Total of `{i}` entries.", file=file)
+        An interval of days, weeks, or months can be specified and specific channel/user to grab from.
 
-    @stats.command(name="messages")
-    async def messages(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = None):
+        Examples:
+            messages DarkKronicle
+            messages 1 month
+            messages general 5 days
+        """
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
         if interval is None:
@@ -223,7 +198,17 @@ class Statistics(commands.Cog):
         return embed
 
     @stats.command(name="voice")
-    async def voice(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = None):
+    async def voice(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = "1 day"):
+        """
+        Pulls up a menu with statistics containing voice chat information.
+
+        An interval of days, weeks, or months can be specified and specific channel/user to grab from.
+
+        Examples:
+            voice DarkKronicle
+            voice 1 month
+            voice general 5 days
+        """
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
         if interval is None:

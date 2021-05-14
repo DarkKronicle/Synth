@@ -52,9 +52,10 @@ class Messages(commands.Cog):
         if time.minute % 5 == 0:
             await self.push()
 
-    @commands.command(name="*messagepush")
+    @commands.command(name="*messagepush", hidden=True)
     @commands.is_owner()
     async def message_push(self, ctx: Context):
+        """Updates the messages in the database"""
         await self.push()
         await ctx.check(0)
 
