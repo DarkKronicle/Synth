@@ -227,8 +227,8 @@ class Statistics(commands.Cog):
             con.execute(command)
             entries = con.fetchall()
         embed = await self.get_voice_embed(ctx, selection, entries=entries, interval=interval)
-        # plot = await self.plot_24_hour_voice(entries=entries)
-        # embed.set_image(url="attachment://graph.png")
+        plot = await self.plot_24_hour_voice(entries=entries)
+        embed.set_image(url="attachment://graph.png")
         return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
 
     async def get_voice_embed(self, ctx, selection, *, interval="24 Hours", entries=None):
