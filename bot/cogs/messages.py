@@ -41,6 +41,13 @@ class Messages(commands.Cog):
         self.bot.remove_loop("messagepush")
 
     @commands.Cog.listener()
+    async def on_guild_join(self, guild: discord.Guild):
+        command = "INSERT INTO messages(guild_id, prefix) VALUES ({0}, 's~') ON CONFLICT (guild_id) DO NOTHING;"
+        command = command.format(guild.id)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+
+    @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.guild is None or message.channel is None or message.author.bot:
             return
@@ -53,6 +60,7 @@ class Messages(commands.Cog):
         if time.minute % 5 == 0:
             await self.push()
         if time.minute == 0 and time.hour == 0:
+            print("Updating flattening...")
             await self.push_flat()
 
     async def push_flat(self):
