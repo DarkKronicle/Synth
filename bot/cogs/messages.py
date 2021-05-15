@@ -42,7 +42,7 @@ class Messages(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
-        command = "INSERT INTO messages(guild_id, prefix) VALUES ({0}, 's~') ON CONFLICT (guild_id) DO NOTHING;"
+        command = "INSERT INTO messages(guild_id) VALUES ({0}) ON CONFLICT (guild_id) DO NOTHING;"
         command = command.format(guild.id)
         async with db.MaybeAcquire() as con:
             con.execute(command)
@@ -77,9 +77,20 @@ class Messages(commands.Cog):
                 'detail': e['detail_remove']
             }
         for g, setting in g_settings.items():
-            await self.flat_specific(g, setting['specific'])
-            await self.flat_time(g, setting['time'])
-            await self.flat_details(g, setting['detail'])
+            async with db.MaybeAcquire() as con:
+                await self.flat_specific(g, setting['specific'], con)
+                await self.flat_time(g, setting['time'], con)
+                await self.flat_details(g, setting['detail'], con)
+        not_in = []
+        command = "INSERT INTO messages(guild_id) VALUES {0} ON CONFLICT (guild_id) DO NOTHING;"
+        for guild in self.bot.guilds:
+            if guild.id not in g_settings:
+                not_in.append(f"({guild.id})")
+        if len(not_in) == 0:
+            return
+        command = command.format(", ".join(not_in))
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
 
     @commands.command(name="*messagepush", hidden=True)
     @commands.is_owner()
@@ -112,7 +123,8 @@ class Messages(commands.Cog):
     async def flat_specific_command(self, ctx: Context, guild_id: int, upper: int):
         if ctx.bot.get_guild(guild_id) is None:
             return await ctx.send("Not a guild!")
-        await self.flat_specific(guild_id, upper)
+        async with db.MaybeAcquire() as con:
+            await self.flat_specific(guild_id, upper, con)
         await ctx.check(0)
 
     @commands.command(name="*flattime", hidden=True)
@@ -120,7 +132,8 @@ class Messages(commands.Cog):
     async def flat_specific_command(self, ctx: Context, guild_id: int, upper: int):
         if ctx.bot.get_guild(guild_id) is None:
             return await ctx.send("Not a guild!")
-        await self.flat_time(guild_id, upper)
+        async with db.MaybeAcquire() as con:
+            await self.flat_time(guild_id, upper, con)
         await ctx.check(0)
 
     @commands.command(name="*flatdetails", hidden=True)
@@ -128,22 +141,23 @@ class Messages(commands.Cog):
     async def flat_specific_command(self, ctx: Context, guild_id: int, upper: int):
         if ctx.bot.get_guild(guild_id) is None:
             return await ctx.send("Not a guild!")
-        await self.flat_details(guild_id, upper)
+        async with db.MaybeAcquire() as con:
+            await self.flat_details(guild_id, upper, con)
         await ctx.check(0)
 
-    async def flat_specific(self, guild_id, days):
+    async def flat_specific(self, guild_id, days, con):
         interval = f"INTERVAL '{days} DAYS'"
         command = f"DELETE FROM messages WHERE time <= NOW() at time zone 'utc' - {interval} " \
                   f"AND guild_id = {guild_id} AND channel_id IS NOT NULL AND user_id IS NOT NULL RETURNING *;"
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
-            channels = Counter()
-            users = Counter()
-            for e in entries:
-                channels[(e["channel_id"], e["time"], e["interval"])] += e["amount"]
-                users[(e["user_id"], e["time"], e["interval"])] += e["amount"]
-            value = "({0}, {1}, {2}, {3}, {4})"
+        con.execute(command)
+        entries = con.fetchall()
+        channels = Counter()
+        users = Counter()
+        for e in entries:
+            channels[(e["channel_id"], e["time"], e["interval"])] += e["amount"]
+            users[(e["user_id"], e["time"], e["interval"])] += e["amount"]
+        value = "({0}, {1}, {2}, {3}, {4})"
+        if len(channels) > 0:
             channel_values = []
             for channel_id, time, interval in channels.keys():
                 amount = channels[(channel_id, time, interval)]
@@ -156,6 +170,7 @@ class Messages(commands.Cog):
             channel_command = channel_command.format(", ".join(channel_values))
             con.execute(channel_command)
 
+        if len(users) > 0:
             user_values = []
             for user_id, time, interval in users.keys():
                 amount = users[(user_id, time, interval)]
@@ -169,21 +184,21 @@ class Messages(commands.Cog):
             user_command = user_command.format(", ".join(user_values))
             con.execute(user_command)
 
-    async def flat_time(self, guild_id, days):
+    async def flat_time(self, guild_id, days, con):
         interval = f"INTERVAL '{days} DAYS'"
         command = f"DELETE FROM messages WHERE time <= NOW() at time zone 'utc' - {interval} " \
                   f"AND guild_id = {guild_id} AND (channel_id IS NOT NULL or user_id IS NOT NULL) RETURNING *;"
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
-            channels = Counter()
-            users = Counter()
-            for e in entries:
-                if e["channel_id"] is not None:
-                    channels[(e["channel_id"], e["time"].date(), e["interval"])] += e["amount"]
-                if e["user_id"] is not None:
-                    users[(e["user_id"], e["time"].date(), e["interval"])] += e["amount"]
-            value = "({0}, {1}, {2}, {3}, {4})"
+        con.execute(command)
+        entries = con.fetchall()
+        channels = Counter()
+        users = Counter()
+        for e in entries:
+            if e["channel_id"] is not None:
+                channels[(e["channel_id"], e["time"].date(), e["interval"])] += e["amount"]
+            if e["user_id"] is not None:
+                users[(e["user_id"], e["time"].date(), e["interval"])] += e["amount"]
+        value = "({0}, {1}, {2}, {3}, {4})"
+        if len(channels) > 0:
             channel_values = []
             for channel_id, time, interval in channels.keys():
                 amount = channels[(channel_id, time, interval)]
@@ -197,6 +212,7 @@ class Messages(commands.Cog):
             channel_command = channel_command.format(", ".join(channel_values))
             con.execute(channel_command)
 
+        if len(users) > 0:
             user_values = []
             for user_id, time, interval in users.keys():
                 amount = users[(user_id, time, interval)]
@@ -210,17 +226,17 @@ class Messages(commands.Cog):
             user_command = user_command.format(", ".join(user_values))
             con.execute(user_command)
 
-    async def flat_details(self, guild_id, days):
+    async def flat_details(self, guild_id, days, con):
         interval = f"INTERVAL '{days} DAYS'"
         command = f"DELETE FROM messages WHERE time <= NOW() at time zone 'utc' - {interval} " \
                   f"AND guild_id = {guild_id} RETURNING *;"
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
-            channels = Counter()
-            for e in entries:
-                if e["channel_id"] is not None:
-                    channels[(e["time"], e["interval"])] += e["amount"]
+        con.execute(command)
+        entries = con.fetchall()
+        channels = Counter()
+        for e in entries:
+            if e["channel_id"] is not None:
+                channels[(e["time"], e["interval"])] += e["amount"]
+        if len(channels) > 0:
             value = "({0}, {1}, {2}, {3})"
             channel_values = []
             for time, interval in channels.keys():
