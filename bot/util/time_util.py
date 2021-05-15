@@ -39,7 +39,7 @@ def round_time(dt=None, round_to=30 * 60):
 
 
 def get_utc():
-    return datetime.now(gettz('utc'))
+    return datetime.utcnow()
 
 
 def get_time_until_minute():
@@ -48,7 +48,7 @@ def get_time_until_minute():
 
 def floor_time(*, top=30, t=None):
     if t is None:
-        t = datetime.now(gettz('UTC'))
+        t = get_utc()
     num = t.minute
     while True:
         if num % top == 0:
@@ -63,7 +63,7 @@ def floor_time(*, top=30, t=None):
 
 def ceil_time(*, top=30, t=None):
     if t is None:
-        t = datetime.now(gettz('UTC'))
+        t = get_utc()
     num = t.minute
     while True:
         if num % top == 0:

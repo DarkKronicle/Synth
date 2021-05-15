@@ -1,3 +1,5 @@
+import math
+
 import discord
 import bot.util.time_util as tutil
 from discord.ext import commands, tasks
@@ -70,7 +72,7 @@ class SynthBot(commands.Bot):
             return
         if isinstance(error, commands.CommandOnCooldown):
             if await self.is_owner(ctx.author):
-                # We don't want me to be on cooldown.
+                # We don't want the owner to be on cooldown.
                 return await ctx.reinvoke()
             # Let people know when they can retry
             embed = ctx.create_embed(
@@ -84,7 +86,9 @@ class SynthBot(commands.Bot):
             return
         if isinstance(error, (commands.ArgumentParsingError, commands.BadArgument,
                               commands.MemberNotFound, commands.ChannelNotFound)):
-            return await ctx.send(embed=ctx.create_embed(description=str(error), error=True), delete_after=15)
+            await ctx.send(embed=ctx.create_embed(description=str(error), error=True), delete_after=15)
+            await ctx.delete()
+            return
         raise error
 
     @cache.cache(maxsize=640)
@@ -156,3 +160,7 @@ class SynthBot(commands.Bot):
             if c.lower() == lower:
                 return self.cogs[c]
         return None
+
+    @discord.utils.cached_property
+    def log(self):
+        return self.get_channel(771174464099975168)

@@ -6,7 +6,6 @@ from dateutil.tz import gettz
 from discord.ext import commands
 
 from bot.util.context import Context
-import bot.util.time_util as tutil
 
 
 class ZoneConverter(commands.Converter):
@@ -21,6 +20,7 @@ class ZoneConverter(commands.Converter):
 
 
 class Utility(commands.Cog):
+    """Miscellaneous utility commands."""
 
     UTC = gettz('UTC')
 

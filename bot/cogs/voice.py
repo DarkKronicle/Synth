@@ -34,7 +34,7 @@ class VoiceLog:
         self.member_id = member_id
         self.channel_id = channel_id
         self.guild_id = guild_id
-        self.start = tutil.round_time(datetime.now(gettz('UTC')), 1)
+        self.start = tutil.round_time(tutil.get_utc(), 1)
         self.stop = None
 
     def has_stopped(self):
@@ -43,12 +43,12 @@ class VoiceLog:
         return True
 
     def force_stop(self):
-        self.stop = tutil.round_time(datetime.now(gettz('UTC')), 1)
+        self.stop = tutil.round_time(tutil.get_utc(), 1)
 
     def stopped_or_now(self):
         if self.has_stopped():
             return self.stop
-        return datetime.now(gettz('UTC'))
+        return tutil.get_utc()
 
 
 class Voice(commands.Cog):
