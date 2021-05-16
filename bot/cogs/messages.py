@@ -65,8 +65,8 @@ class Messages(commands.Cog):
 
     async def push_flat(self):
         g_settings = {}
-        command = "SELECT COALESCE(specific_remove, 'default'), COALESCE(time_remove, 'default'), " \
-                  "COALESCE(detail_remove, 'default') FROM guild_config;"
+        command = "SELECT guild_id, specific_remove, time_remove, " \
+                  "detail_remove FROM guild_config;"
         async with db.MaybeAcquire() as con:
             con.execute(command)
             settings = con.fetchall()
