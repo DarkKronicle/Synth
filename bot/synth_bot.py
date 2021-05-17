@@ -1,39 +1,46 @@
 import math
-
-import discord
-import bot.util.time_util as tutil
-from discord.ext import commands, tasks
-import bot.util.storage_cache as cache
-import bot.util.database as db
+import traceback
+from datetime import datetime
 
 import bot
-
-from datetime import datetime
-import traceback
-
+from bot.util import database as db
+from bot.util import storage_cache as cache
+from bot.util import time_util as tutil
+import discord
 from bot.cogs.help import HelpCommand
 from bot.util.context import Context
+from discord.ext import commands, tasks
+import logging
 
-cogs_dir = "bot.cogs"
-startup_extensions = ["utility", "messages", "statistics", "voice", "owner", "guild_config", "stat_channels", "data"]
-description = "The open source discord statistic bot."
+cogs_dir = 'bot.cogs'
+startup_extensions = ['utility', 'messages', 'statistics', 'voice', 'owner', 'guild_config', 'stat_channels', 'data']
+description = 'The open source discord statistic bot.'
+
+error_timeout = 15
+settings_cache = 640
+send_error = (
+    commands.ArgumentParsingError,
+    commands.BadArgument,
+    commands.MemberNotFound,
+    commands.ChannelNotFound,
+)
 
 
 async def get_prefix(bot_obj, message: discord.Message):
     user_id = bot_obj.user.id
-    prefixes = ["s~", f"<@{user_id}> ", bot_obj.user.mention + " "]
-    space = ["s~ ", f"<@{user_id}> ", bot_obj.user.mention + " "]
+    prefixes = ['s~', '<@{0}> '.format(user_id)]
+    space = ['s~ ', '<@{0}> '.format(user_id)]
     if message.guild is None:
-        prefix = "~"
+        prefix = '~'
     else:
         prefix = await bot_obj.get_guild_prefix(message.guild.id)
         if prefix is None:
-            prefix = "~"
-    content: str = message.content
-    if content.startswith("s~ "):
+            prefix = '~'
+    message_content: str = message.content
+    if message_content.startswith('s~ '):
         return space
-    if content.startswith(prefix + " "):
-        space.append(prefix + " ")
+    if message_content.startswith('{0} '.format(prefix)):
+        space.append('{0} '.format(prefix))
         return space
     prefixes.append(prefix)
     return prefixes
@@ -42,7 +49,7 @@ async def get_prefix(bot_obj, message: discord.Message):
 class SynthBot(commands.Bot):
 
     def __init__(self):
-        print("Loading bot...")
+        logging.info('Loading bot...')
 
         self.loops = {}
         allowed_mentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
@@ -50,22 +57,28 @@ class SynthBot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = True
         intents.guilds = True
-        super().__init__(command_prefix=get_prefix, intents=intents, description=description,
-                         case_insensitive=True, owner_id=bot.config['owner_id'], allowed_mentions=allowed_mentions)
+        super().__init__(
+            command_prefix=get_prefix,
+            intents=intents,
+            description=description,
+            case_insensitive=True,
+            owner_id=bot.config['owner_id'],
+            allowed_mentions=allowed_mentions,
+        )
         self.boot = datetime.now()
         self.help_command = HelpCommand()
         for extension in startup_extensions:
             try:
-                self.load_extension(cogs_dir + "." + extension)
+                self.load_extension('{0}.{1}'.format(cogs_dir, extension))
 
             except (discord.ClientException, ModuleNotFoundError):
-                print(f'Failed to load extension {extension}.')
+                logging.warning('Failed to load extension {0}.'.format(extension))
                 traceback.print_exc()
 
     def run(self):
         super().run(bot.config['bot_token'], reconnect=True)
 
-    async def on_command_error(self, ctx: Context, error):
+    async def on_command_error(self, ctx: Context, error):  # noqa: WPS217
         if isinstance(error, commands.CommandNotFound):
             return
         if isinstance(error, commands.CheckFailure):
@@ -73,27 +86,26 @@ class SynthBot(commands.Bot):
         if isinstance(error, commands.CommandOnCooldown):
             if await self.is_owner(ctx.author):
                 # We don't want the owner to be on cooldown.
-                return await ctx.reinvoke()
+                await ctx.reinvoke()
+                return
             # Let people know when they can retry
             embed = ctx.create_embed(
-                title="Command On Cooldown!",
-                description=f"This command is currently on cooldown. Try again in `{math.ceil(error.retry_after)}` "
-                            f"seconds.",
-                error=True
+                title='Command On Cooldown!',
+                description='This command is currently on cooldown. Try again in `{0}` seconds.'.format(math.ceil(error.retry_after)),
+                error=True,
             )
             await ctx.delete()
-            await ctx.send(embed=embed, delete_after=15)
+            await ctx.send(embed=embed, delete_after=error_timeout)
             return
-        if isinstance(error, (commands.ArgumentParsingError, commands.BadArgument,
-                              commands.MemberNotFound, commands.ChannelNotFound)):
-            await ctx.send(embed=ctx.create_embed(description=str(error), error=True), delete_after=15)
+        if isinstance(error, send_error):
+            await ctx.send(embed=ctx.create_embed(description=str(error), error=True), delete_after=error_timeout)
             await ctx.delete()
             return
         raise error
 
-    @cache.cache(maxsize=640)
+    @cache.cache(maxsize=settings_cache)
     async def get_guild_prefix(self, guild_id):
-        command = "SELECT prefix FROM guild_config WHERE guild_id = {0};"
+        command = 'SELECT prefix FROM guild_config WHERE guild_id = {0};'
         command = command.format(guild_id)
         async with db.MaybeAcquire() as con:
             con.execute(command)
@@ -104,7 +116,7 @@ class SynthBot(commands.Bot):
 
     async def on_ready(self):
         self.setup_loop.start()
-        print("Bot up and running!")
+        logging.info('Bot up and running!')
 
     async def process_commands(self, message):
         if message.author.bot:
@@ -134,9 +146,9 @@ class SynthBot(commands.Bot):
     @tasks.loop(minutes=1)
     async def time_loop(self):
         time = tutil.round_time(round_to=60)
-        for loop in self.loops:
+        for _, function in self.loops.items():
             try:
-                await self.loops[loop](time)
+                await function(time)
             except Exception as error:
                 if isinstance(error, (discord.Forbidden, discord.errors.Forbidden)):
                     return
@@ -148,19 +160,19 @@ class SynthBot(commands.Bot):
     async def setup_loop(self):
         # Probably one of the most hacky ways to get a loop to run every thirty minutes based
         # off of starting on one of them.
-        if self.first_loop:
-            self.first_loop = False
+        if SynthBot.first_loop:
+            SynthBot.first_loop = False
             return
         self.time_loop.start()
         self.setup_loop.stop()
 
     def get_cog(self, name):
         lower = name.lower()
-        for c in self.cogs.keys():
-            if c.lower() == lower:
-                return self.cogs[c]
+        for cog in self.cogs.keys():
+            if cog.lower() == lower:
+                return self.cogs[cog]
         return None
 
     @discord.utils.cached_property
     def log(self):
-        return self.get_channel(771174464099975168)
+        return self.get_channel(bot.config['log_channel'])

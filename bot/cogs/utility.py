@@ -2,20 +2,19 @@ import typing
 from datetime import datetime
 
 import discord
+from bot.util.context import Context
 from dateutil.tz import gettz
 from discord.ext import commands
-
-from bot.util.context import Context
 
 
 class ZoneConverter(commands.Converter):
 
     async def convert(self, ctx, argument):
         if len(argument) == 0:
-            raise commands.BadArgument("Invalid time zone!")
+            raise commands.BadArgument('Invalid time zone!')
         zone = gettz(argument)
         if zone is None:
-            raise commands.BadArgument("Invalid time zone!")
+            raise commands.BadArgument('Invalid time zone!')
         return zone
 
 
@@ -24,18 +23,18 @@ class Utility(commands.Cog):
 
     UTC = gettz('UTC')
 
-    @commands.command(name="ping")
+    @commands.command(name='ping')
     async def ping(self, ctx):
         """
         Pings the bot and gets the millisecond delay.
         """
         time0 = ctx.message.created_at
-        sent = await ctx.send("Pinging")
+        sent = await ctx.send('Pinging')
         time1 = sent.created_at
         dif1 = round((time1 - time0).total_seconds() * 1000)
-        await sent.edit(content=f"Pong! Pinging time was {dif1}ms")
+        await sent.edit(content=f'Pong! Pinging time was {dif1}ms')
 
-    @commands.command(name="zoneconverter", aliases=["zone2zone", "z2z"])
+    @commands.command(name='zoneconverter', aliases=['zone2zone', 'z2z'])
     async def time_convert(self, ctx: Context, from_zone: typing.Optional[ZoneConverter],
                            to_zone: ZoneConverter = None):
         """
@@ -53,11 +52,11 @@ class Utility(commands.Cog):
             from_zone = self.UTC
         f = datetime.now(from_zone)
         t = f.astimezone(to_zone)
-        f_form = f.strftime("%H:%M:%S %z")
-        t_form = t.strftime("%H:%M:%S %z")
-        await ctx.send(embed=ctx.create_embed(description=f"From:\n `{f_form}`\n\nTo:\n `{t_form}`", title=f"{f.tzname()} -> {t.tzname()}"))
+        f_form = f.strftime('%H:%M:%S %z')
+        t_form = t.strftime('%H:%M:%S %z')
+        await ctx.send(embed=ctx.create_embed(description=f'From:\n `{f_form}`\n\nTo:\n `{t_form}`', title=f'{f.tzname()} -> {t.tzname()}'))
 
-    @commands.command(name="user")
+    @commands.command(name='user')
     async def user(self, ctx: Context, user: discord.Member = None):
         """
         Get's information about a user.
@@ -71,7 +70,7 @@ class Utility(commands.Cog):
         pfp = user.avatar_url
         embed = ctx.create_embed(title=str(user))
         embed.set_image(url=pfp)
-        description = f"Created: `{user.created_at}`"
+        description = f'Created: `{user.created_at}`'
         embed.description = description
         await ctx.send(embed=embed)
 

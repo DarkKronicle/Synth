@@ -1,37 +1,41 @@
 import discord
+from bot.util.paginator import Pages
 from discord.ext import commands, menus
 
-from bot.util.paginator import Pages
+
+COG_LENGTH = 800
+MAIN_COLOR = discord.Colour(0x9D0DF0)  # noqa: WPS432
 
 
 class BotHelpPageSource(menus.ListPageSource):
 
     def __init__(self, help_command, cogs_commands):
-        super().__init__(entries=sorted(cogs_commands.keys(), key=lambda c: c.qualified_name), per_page=5)
+        entries = sorted(cogs_commands.keys(), key=lambda command: command.qualified_name)
+        super().__init__(entries=entries, per_page=5)
         self.help_command: HelpCommand = help_command
         self.cogs_commands: dict = cogs_commands
 
     # https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/meta.py#L41
     def short_cog(self, cog: commands.Cog, cogs_commands):
         if cog.description:
-            description = cog.description.split("\n", 1)[0] + "\n"
+            description = '{0}\n'.format(cog.description.split('\n', 1)[0])
         else:
-            description = "No information...\n"
+            description = 'No information...\n'
 
         count = len(description)
-        end_note = "+{} others"
+        end_note = '+{0} others'
         end_length = len(end_note)
 
         page = []
 
         for command in cogs_commands:
-            name = f"`{command.name}`"
+            name = '`{0}`'.format(command.name)
             name_count = len(name) + 1
-            if name_count + count < 800:
+            if name_count + count < COG_LENGTH:
                 count += name_count
                 page.append(name)
             else:
-                if count + end_length + 1 > 800:
+                if count + end_length + 1 > COG_LENGTH:
                     page.pop()
                 break
 
@@ -39,82 +43,87 @@ class BotHelpPageSource(menus.ListPageSource):
             return description + ' '.join(page)
 
         left = len(cogs_commands) - len(page)
-        return description + ' '.join(page) + "\n" + end_note.format(str(left))
+        end_note = end_note.format(str(left))
+        return '{0}{1}\n{2}'.format(description, ' '.join(page), end_note)
 
     async def format_page(self, menu, cogs):
-        top = f"`help [command/category]` for more specific help." \
-              f"\n[Invite Me](https://youtube.com/)" \
-              f" - [Support Server](https://discord.gg/WnaE3uZxDA) - [GitHub](https://github.com/DarkKronicle/Synth/)"
+        top = """
+            `help [command/category]` for more specific help.'
+            [Invite Me](https://youtube.com/)
+            - [Support Server](https://discord.gg/WnaE3uZxDA) - [GitHub](https://github.com/DarkKronicle/Synth/)
+        """
+        top = top.replace('    ', '')
 
         embed = await create_embed(self.help_command, self.help_command.context.guild)
-        description = ""
+        description = ''
 
         for cog in cogs:
-            cmds = self.cogs_commands.get(cog)
-            if cmds:
-                val = self.short_cog(cog, cmds)
-                description += f"\n\n```\n{cog.qualified_name}\n```{val}"
+            cog_commands = self.cogs_commands.get(cog)
+            if cog_commands:
+                cog_description = self.short_cog(cog, cog_commands)
+                description += '\n\n```\n{0}\n```{1}'.format(cog.qualified_name, cog_description)
 
         embed.description = top + description
-        embed.set_author(name="Synth Help", url=self.help_command.context.bot.user.avatar_url)
+        context = self.help_command.context
+        embed.set_author(name='Synth Help', url=context.bot.user.avatar_url)
         maximum = self.get_max_pages()
         if maximum > 1:
-            embed.set_footer(text=f'Page {menu.current_page + 1}/{maximum} ({len(self.entries)} categories)')
+            footer = 'Page {0}/{1} ({2} categories)'.format(menu.current_page + 1, maximum, len(self.entries))
+            embed.set_footer(text=footer)
 
         return embed
 
 
 class GroupHelpPageSource(menus.ListPageSource):
 
-    def __init__(self, help_command, group, commands, *, prefix):
-        super().__init__(entries=commands, per_page=6)
+    def __init__(self, help_command, group, group_commands, *, prefix):
+        super().__init__(entries=group_commands, per_page=6)
         self.help_command = help_command
         self.group = group
         self.prefix = prefix
-        self.title = f'{self.group.qualified_name} Commands'
+        self.title = '{0} Commands'.format(self.group.qualified_name)
         self.description = self.group.description
 
-    async def format_page(self, menu, commands):
+    async def format_page(self, menu, group_commands):
         embed = await create_embed(self.help_command, self.help_command.context.guild)
-        description = self.description + "\n\n"
-        for command in commands:
-            signature = f'```\n{self.help_command.get_command_signature(command, show_aliases=False)}\n```'
+        description = '{0}\n\n'.format(self.description)
+        for command in group_commands:
+            signature = self.help_command.get_command_signature(command, show_aliases=False)
+            signature = '```\n{0}\n```'.format(signature)
             description += signature + (command.short_doc or 'No help given...')
 
         embed.description = description
         embed.title = self.title
-        embed.set_author(name="Synth Help", url=self.help_command.context.bot.user.avatar_url)
+        bot = self.help_command.context.bot
+        embed.set_author(name='Synth Help', url=bot.user.avatar_url)
         maximum = self.get_max_pages()
         if maximum > 1:
-            embed.set_author(name=f'Page {menu.current_page + 1}/{maximum} ({len(self.entries)} commands)')
+            footer = 'Page {0}/{1} ({2} commands)'.format(menu.current_page + 1, maximum, len(self.entries))
+            embed.set_footer(text=footer)
 
         return embed
 
 
 class HelpMenu(Pages):
-
-    def __init__(self, source):
-        super().__init__(source)
+    """Specific menu for help."""
 
 
 async def create_embed(command, guild):
-    prefix = ["s~"]
+    prefix = ['s~']
     if guild is None:
-        prefix.append("~")
+        prefix.append('~')
     else:
         prefix.append(await command.context.bot.get_guild_prefix(guild.id))
     embed = discord.Embed(colour=HelpCommand.MAIN_COLOR)
-    embed.set_footer(text=f"Prefix: {', '.join(prefix)}")
+    embed.set_footer(text='Prefix: {0}'.format(', '.join(prefix)))
     return embed
 
 
 class HelpCommand(commands.HelpCommand):
 
-    MAIN_COLOR = discord.Colour(0x9d0df0)
-
     def __init__(self):
         super().__init__(command_attrs={
-            'help': 'Shows command information'
+            'help': 'Shows command information',
         })
 
     async def send_bot_help(self, mapping):
@@ -134,65 +143,67 @@ class HelpCommand(commands.HelpCommand):
 
     def get_command_signature(self, command: commands.Command, *, show_aliases=True):
         parent = command.parent
-        aliases = "|".join([command.name] + command.aliases)
+        aliases = '|'.join([command.name] + command.aliases)
         if parent is None:
             fmt = aliases
         else:
             parents_formatted = []
             while parent is not None:
                 if show_aliases:
-                    parents_formatted.append("|".join([parent.name] + parent.aliases))
+                    parents_formatted.append('|'.join([parent.name] + parent.aliases))
                 else:
                     parents_formatted.append(parent.name)
                 parent = parent.parent
-            fmt = f"{'|'.join(parents_formatted)} {aliases}"
-        if len(command.signature) > 0:
-            return f"{fmt} {command.signature}"
+            fmt = '|'.join(parents_formatted) + aliases
+        if command.signature:
+            return '{0} {1}'.format(fmt, command.signature)
         return fmt
 
     async def send_group_help(self, group: commands.Group):
         subcommands = group.commands
-        if len(subcommands) == 0:
+        if not subcommands:
             return await self.send_command_help(group)
 
         entries = await self.filter_commands(subcommands, sort=True)
-        if len(entries) == 0:
+        if not entries:
             return await self.send_command_help(group)
 
         source = GroupHelpPageSource(self, group, entries, prefix=self.clean_prefix)
         menu = HelpMenu(source)
         await menu.start(self.context)
 
+    def get_examples(self, examples, command):
+        help_text = 'Examples:```'
+        for example in examples:
+            example = example.replace('   ', '')
+            split = command.qualified_name.split(' ')
+            if len(split) > 1:
+                example = ' '.join(split[:-1]) + example
+            help_text += '\n{0}{1}'.format(self.clean_prefix, example)
+        return '{0}\n```'.format(help_text)
+
     def get_detailed_command(self, command: commands.Command):
         if command.help is not None:
-            examples_split = command.help.split("Examples:")
+            examples_split = command.help.split('Examples:')
             help_text = examples_split[0]
             if len(examples_split) > 1:
                 examples = []
-                for e in examples_split[1].split("\n")[1:]:
-                    examples.append(e)
-                if len(examples) > 0:
-                    help_text += "Examples:```"
-                    for e in examples:
-                        e = e.replace('   ', '')
-                        split = command.qualified_name.split(" ")
-                        if len(split) > 1:
-                            e = " ".join(split[:-1]) + e
-                        help_text += f"\n{self.clean_prefix}{e}"
-                    help_text += "\n```"
+                for example in examples_split[1].split('\n')[1:]:
+                    examples.append(example)
+                if examples:
+                    help_text = help_text + self.get_examples(examples, command)
         else:
-            help_text = "No help found..."
-        return f"```\n{self.get_command_signature(command)}\n```\n{help_text}"
+            help_text = 'No help found...'
+        return '```\n{0}\n```\n{1}'.format(self.get_command_signature(command), help_text)
 
     async def send_command_help(self, command: commands.Command):
         embed = await create_embed(self, self.context.guild)
         embed.description = self.get_detailed_command(command)
-        embed.title = f"{command.qualified_name}"
-        embed.set_author(name="Synth Help", url=self.context.bot.user.avatar_url)
+        embed.title = command.qualified_name
+        embed.set_author(name='Synth Help', url=self.context.bot.user.avatar_url)
         await self.context.send(embed=embed)
 
     async def send_cog_help(self, cog):
         entries = await self.filter_commands(cog.get_commands(), sort=True)
         menu = HelpMenu(GroupHelpPageSource(self, cog, entries, prefix=self.clean_prefix))
         await menu.start(self.context)
-

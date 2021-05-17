@@ -26,7 +26,7 @@ class ImagePaginatorSource(menus.ListPageSource):
         embed = self.embed.copy()
         if maximum > 1:
             embed.set_footer(text=f'Page {menu.current_page + 1}/{maximum} ({len(self.entries)} images)')
-        embed.set_image(url=f"attachment://{page.filename}")
+        embed.set_image(url=f'attachment://{page.filename}')
         return {'embed': embed, 'file': page}
 
 
@@ -37,7 +37,7 @@ class ImagePaginator(Pages):
         self.files = []
         f = 0
         for i in self.images:
-            self.files.append(discord.File(fp=i, filename=f"graph{f}.png"))
+            self.files.append(discord.File(fp=i, filename=f'graph{f}.png'))
             f += 1
         super().__init__(ImagePaginatorSource(embed, self.files))
 
@@ -45,7 +45,7 @@ class ImagePaginator(Pages):
         page = await self._source.get_page(self.current_page)
         kwargs = await self._get_kwargs_from_page(page)
 
-        # kwargs["files"] = files
+        # kwargs['files'] = files
         return await channel.send(**kwargs)
 
     async def show_page(self, page_number):

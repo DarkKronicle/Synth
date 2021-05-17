@@ -1,29 +1,29 @@
+import pathlib
 import traceback
 
 import toml
-import pathlib
 
 
-class Config:
+class Config:    # noqa: WPS110
     """
     Basically reads a toml file and then provides a nice interface with it.
     """
 
-    def __init__(self, file: pathlib.Path):
-        self.file = file
-        self.data = {}
+    def __init__(self, config_file: pathlib.Path):
+        self.config_file = config_file
+        self.data = {}    # noqa: WPS110
         self.loadfile()
 
     def loadfile(self):
         try:
-            data = self.file.read_text()
+            data = self.config_file.read_text()    # noqa: WPS110
         except Exception:
             traceback.print_exc()
             return
-        self.data = toml.loads(data)
+        self.data = toml.loads(data)    # noqa: WPS110
 
-    def __getitem__(self, item):
+    def __getitem__(self, item):    # noqa: WPS110
         return self.data[item]
 
-    def __contains__(self, item):
+    def __contains__(self, item):    # noqa: WPS110
         return item in self.data

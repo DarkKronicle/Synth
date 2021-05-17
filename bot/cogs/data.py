@@ -1,63 +1,61 @@
+"""
+Class for user's managing data that is maintained by the bot.
+"""
 import csv
 from io import StringIO
 
 import discord
+from bot.util import checks
+from bot.util import database as db
+from bot.util.context import Context
 from discord.ext import commands
 
-from bot.util import checks
-from bot.util.context import Context
-import bot.util.database as db
+
+def get_row(guild, entry):
+    channel_id = entry['channel_id']
+    user_id = entry['user_id']
+    channel = guild.get_channel(channel_id) or channel_id
+    user = guild.get_member(user_id) or user_id
+    return [channel, user, entry['amount'], entry['time']]
 
 
-class Data(commands.Cog):
+class Data(commands.Cog):   # noqa: WPS110
     """Manage data stored in the bot."""
 
     def __init__(self, bot):
+        """
+        Initiates the Cog
+        :param bot: SynthBot
+        """
         self.bot = bot
 
-    @commands.group(name="!export")
+    @commands.group(name='!export')
     @checks.is_mod()
     async def export(self, ctx: Context):
-        """
-        Export command for server information.
-        """
-        pass
+        """Export command for server information."""
 
-    @export.command(name="all")
+    @export.command(name='all')
     async def export_all(self, ctx: Context):
-        """
-        Exports all message data in the form of a CSV.
-        """
+        """Exports all message data in the form of a CSV."""
         await ctx.trigger_typing()
-        command = "SELECT * FROM messages WHERE guild_id = {0};"
-        command = command.format(str(ctx.guild.id))
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
+
         buffer = StringIO()
         writer = csv.writer(buffer)
-        i = 0
-        id_to_name = {}
-        for e in entries:
-            i += 1
-            channel_id = e["channel_id"]
-            user_id = e["user_id"]
-            if user_id not in id_to_name:
-                user = ctx.guild.get_member(user_id)
-                if user is not None:
-                    id_to_name[user_id] = str(user)
-                else:
-                    id_to_name[user_id] = str(user_id)
-            if channel_id not in id_to_name:
-                channel = ctx.guild.get_channel(channel_id)
-                if channel is not None:
-                    id_to_name[channel_id] = channel.name
-                else:
-                    id_to_name[channel_id] = str(channel_id)
-            writer.writerow([id_to_name[channel_id], id_to_name[user_id], e["amount"], e["time"]])
+        entries = await self.get_all_guild_entries(ctx.guild.id)
+        for entry in entries:
+            writer.writerow(get_row(ctx.guild, entry))
         buffer.seek(0)
-        file = discord.File(fp=buffer, filename="data.csv")
-        await ctx.send(f"Here's the data for {ctx.guild.name}! Total of `{i}` entries.", file=file)
+        export_content = "Here's the data for {0}! Total of `{1}` entries.".format(ctx.guild.name, len(entries))
+        await ctx.send(
+            export_content,
+            file=discord.File(fp=buffer, filename='data.csv'),
+        )
+
+    async def get_all_guild_entries(self, guild_id):
+        command = 'SELECT * FROM messages WHERE guild_id = {0};'
+        async with db.MaybeAcquire() as con:
+            con.execute(command.format(str(guild_id)))
+            return con.fetchall()
 
 
 def setup(bot):

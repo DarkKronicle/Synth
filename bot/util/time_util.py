@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 
-from dateutil.tz import gettz
 from pytz import timezone
 
 
@@ -11,14 +10,14 @@ def human(total_seconds):
     days = total_seconds // 60 // 60 // 24
     builder = []
     if days > 0:
-        builder.append(f"{int(days)} days")
+        builder.append(f'{int(days)} days')
     if hours > 0:
-        builder.append(f"{int(hours)} hours")
+        builder.append(f'{int(hours)} hours')
     if minutes > 0:
-        builder.append(f"{int(minutes)} minutes")
+        builder.append(f'{int(minutes)} minutes')
     if seconds > 0:
-        builder.append(f"{int(seconds)} seconds")
-    return ", ".join(builder)
+        builder.append(f'{int(seconds)} seconds')
+    return ', '.join(builder)
 
 
 def round_time(dt=None, round_to=30 * 60):
@@ -57,8 +56,7 @@ def floor_time(*, top=30, t=None):
     while num < 0:
         num += 60
         t = t.replace(hour=t.hour - 1)
-    t = t.replace(minute=num, second=0, microsecond=0)
-    return t
+    return t.replace(minute=num, second=0, microsecond=0)
 
 
 def ceil_time(*, top=30, t=None):
@@ -72,5 +70,4 @@ def ceil_time(*, top=30, t=None):
     while num > 60:
         num -= 60
         t = t.replace(hour=t.hour + 1)
-    t = t.replace(minute=num, second=0, microsecond=0)
-    return t
+    return t.replace(minute=num, second=0, microsecond=0)

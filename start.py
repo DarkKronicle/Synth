@@ -4,43 +4,59 @@ import traceback
 import psycopg2
 
 from bot.synth_bot import SynthBot, startup_extensions, cogs_dir
-import bot.util.database as db
+from bot.util import database as db
 import bot as bot_storage
 from bot.util.config import Config
 from pathlib import Path
 import importlib
+import logging
 
 
-def database():
+def create_tables(connection):
     run = asyncio.get_event_loop().run_until_complete
-
-    cogs = startup_extensions
-
-    for ext in cogs:
-        try:
-            importlib.import_module(cogs_dir + "." + ext)
-        except Exception:
-            print(f'Could not load {ext}')
-            traceback.print_exc()
-            return
-
-    print(f"Preparing to create {len(db.Table.all_tables())} tables.")
-    connection = psycopg2.connect(
-        f"dbname={bot_storage.config['postgresql_name']} user={bot_storage.config['postgresql_user']} password={bot_storage.config['postgresql_password']}")
     for table in db.Table.all_tables():
         try:
             run(table.create(connection=connection))
-        except Exception:
-            print(f"Failed creating table {table.tablename}")
+        except Exception:     # noqa: E722
+            logging.warning('Failed creating table {0}'.format(table.tablename))
             traceback.print_exc()
+
+
+def database():
+
+    cogs = startup_extensions
+
+    for cog in cogs:
+        try:
+            importlib.import_module('{0}.{1}'.format(cogs_dir, cog))
+        except Exception:     # noqa: E722
+            logging.warning('Could not load {0}'.format(cog))
+            traceback.print_exc()
+            return
+
+    logging.info('Preparing to create {0} tables.'.format(len(db.Table.all_tables())))
+    connection = psycopg2.connect(
+        'dbname={0} user={1} password={2}'.format(
+            bot_storage.config['postgresql_name'],
+            bot_storage.config['postgresql_user'],
+            bot_storage.config['postgresql_password'],
+        ),
+    )
+
+    create_tables(connection)
+
     connection.commit()
     connection.cursor().close()
     connection.close()
 
 
 def run_bot():
-    bot_storage.config = Config(Path("./config.toml"))
-    db.Table.create_data(bot_storage.config['postgresql_name'], bot_storage.config['postgresql_user'], bot_storage.config['postgresql_password'])
+    bot_storage.config = Config(Path('./config.toml'))
+    db.Table.create_data(
+        bot_storage.config['postgresql_name'],
+        bot_storage.config['postgresql_user'],
+        bot_storage.config['postgresql_password'],
+    )
     database()
     bot = SynthBot()
     bot.run()

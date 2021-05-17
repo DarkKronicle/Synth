@@ -1,20 +1,17 @@
+import re
+import typing
 from collections import Counter
 from datetime import datetime, timedelta
 from io import BytesIO
 
-from dateutil.tz import gettz
-
-import bot.util.time_util as tutil
-from discord.ext import commands
-import discord
-import matplotlib.pyplot as plt
-import matplotlib.dates as md
 import bot.util.database as db
-import re
-import typing
-
+import bot.util.time_util as tutil
+import discord
+import matplotlib.dates as md
+import matplotlib.pyplot as plt
 from bot.util.context import Context
 from bot.util.paginator import ImagePaginator
+from discord.ext import commands
 
 
 class StatisticType:
@@ -47,13 +44,13 @@ class StatisticType:
 
     def get_condition(self):
         if self.is_member():
-            return f"guild_id = {self.guild.id} AND user_id = {self.member.id}"
+            return f'guild_id = {self.guild.id} AND user_id = {self.member.id}'
         if self.is_channel():
-            return f"channel_id = {self.channel.id}"
+            return f'channel_id = {self.channel.id}'
         if self.is_guild():
-            return f"guild_id = {self.guild.id}"
+            return f'guild_id = {self.guild.id}'
         if self.is_global():
-            return "time IS NOT NONE"
+            return 'time IS NOT NONE'
 
     def get_name(self):
         if self.is_member():
@@ -63,16 +60,16 @@ class StatisticType:
         if self.is_guild():
             return self.guild.name
         if self.is_global():
-            return "global"
+            return 'global'
 
 
 class StatConverter(commands.Converter):
 
     async def convert(self, ctx: Context, argument):
         low = argument.lower()
-        if low == "global" and await ctx.bot.is_owner(ctx.author):
+        if low == 'global' and await ctx.bot.is_owner(ctx.author):
             return StatisticType(_global=True)
-        if low == "guild" or low == "server":
+        if low == 'guild' or low == 'server':
             return StatisticType(guild=ctx.guild, channel=ctx.channel)
         try:
             channel = await commands.TextChannelConverter().convert(ctx, argument)
@@ -92,10 +89,9 @@ class StatConverter(commands.Converter):
 
 
 class IntervalConverter(commands.Converter):
-
-    DAY_REGEX = re.compile(r"(\d{1,2}) day(s)?")
-    WEEK_REGEX = re.compile(r"(\d{1,2}) week(s)?")
-    MONTH_REGEX = re.compile(r"(\d{1,2}) month(s)?")
+    DAY_REGEX = re.compile(r'(\d{1,2}) day(s)?')
+    WEEK_REGEX = re.compile(r'(\d{1,2}) week(s)?')
+    MONTH_REGEX = re.compile(r'(\d{1,2}) month(s)?')
 
     async def convert(self, ctx: Context, argument):
         low = argument.lower()
@@ -103,20 +99,20 @@ class IntervalConverter(commands.Converter):
         if match:
             days = int(match.group(1))
             if days <= 0:
-                raise commands.errors.BadArgument("Days has to be greater than 0!")
-            return f"{days} days"
+                raise commands.errors.BadArgument('Days has to be greater than 0!')
+            return f'{days} days'
         match: re.Match = self.WEEK_REGEX.search(low)
         if match:
             weeks = int(match.group(1))
             if weeks <= 0:
-                raise commands.errors.BadArgument("Weeks has to be great than 0!")
-            return f"{weeks} weeks"
+                raise commands.errors.BadArgument('Weeks has to be great than 0!')
+            return f'{weeks} weeks'
         match: re.Match = self.MONTH_REGEX.search(low)
         if match:
             months = int(match.group(1))
             if months >= 24 or months <= 0:
-                raise commands.errors.BadArgument("Months has to be above zero and below 24!")
-            return f"{months} months"
+                raise commands.errors.BadArgument('Months has to be above zero and below 24!')
+            return f'{months} months'
         return None
 
 
@@ -127,17 +123,18 @@ class Statistics(commands.Cog):
         self.bot = bot
         self.main_color = discord.Colour(0x9d0df0)
 
-    @commands.group(name="stats", aliases=["statistics", "stat"])
+    @commands.group(name='stats', aliases=['statistics', 'stat'])
     @commands.guild_only()
     async def stats(self, ctx: Context):
         """
         View statistics about the server.
         """
         if ctx.invoked_subcommand is None:
-            await ctx.send_help("stats")
+            await ctx.send_help('stats')
 
-    @stats.command(name="messages", aliases=["msg", "message"])
-    async def messages(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = "1 day"):
+    @stats.command(name='messages', aliases=['msg', 'message'])
+    async def messages(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *,
+                       interval: IntervalConverter = '1 day'):
         """
         Pulls up a menu with statistics containing chat information.
 
@@ -164,11 +161,11 @@ class Statistics(commands.Cog):
             images.append(await self.plot_message_channel_pie(ctx, entries))
         if not selection.is_member():
             images.append(await self.plot_message_user_pie(ctx, entries))
-        embed.set_image(url="attachment://graph.png")
+        embed.set_image(url='attachment://graph.png')
         menu = ImagePaginator(embed, images)
         await menu.start(ctx)
 
-    async def get_message_embed(self, ctx, selection, *, interval="24 Hours", entries=None):
+    async def get_message_embed(self, ctx, selection, *, interval='24 Hours', entries=None):
         if entries is None:
             command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
             command = command.format(selection.get_condition(), interval)
@@ -177,36 +174,37 @@ class Statistics(commands.Cog):
                 entries = con.fetchall()
 
         small, big = self.count_compressed(entries)
-        description = f"Total of `{self.count_all(entries)} messages`\n\n\*{small} messages lost some data, {big} messages lost .\n\n"
+        description = f'Total of `{self.count_all(entries)} messages`\n\n\\*{small} messages lost some data, {big} messages lost most data2.\n\n'
         if not selection.is_member():
             formatted_people = []
             i = 0
-            for p, amount in self.count(entries, "user_id", n=5):
+            for p, amount in self.count(entries, 'user_id', n=5):
                 i += 1
-                formatted_people.append(f"`{i}.` <@{p}> - `{amount} messages`")
-            description += f"**Messages | Top 5 Users**\n" + "\n".join(formatted_people)
+                formatted_people.append(f'`{i}.` <@{p}> - `{amount} messages`')
+            description += '**Messages | Top 5 Users**\n' + '\n'.join(formatted_people)
 
         if not selection.is_channel():
             formatted_channels = []
             i = 0
-            for c, amount in self.count(entries, "channel_id", n=5):
+            for c, amount in self.count(entries, 'channel_id', n=5):
                 i += 1
-                formatted_channels.append(f"`{i}.` <#{c}> - `{amount} messages`")
-            description += "\n\n **Messages | Top 5 Channels**\n" \
-                           + "\n".join(formatted_channels)
+                formatted_channels.append(f'`{i}.` <#{c}> - `{amount} messages`')
+            description += '\n\n **Messages | Top 5 Channels**\n' \
+                           + '\n'.join(formatted_channels)
 
         embed = ctx.create_embed(
-            title=f"Past {interval} for {selection.get_name()}",
+            title=f'Past {interval} for {selection.get_name()}',
             description=description
         )
         time = datetime.utcnow()
-        time_str = time.strftime("%H:%M:%S UTC")
+        time_str = time.strftime('%H:%M:%S UTC')
 
         embed.set_footer(text=time_str)
         return embed
 
-    @stats.command(name="voice")
-    async def voice(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *, interval: IntervalConverter = "1 day"):
+    @stats.command(name='voice')
+    async def voice(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *,
+                    interval: IntervalConverter = '1 day'):
         """
         Pulls up a menu with statistics containing voice chat information.
 
@@ -220,7 +218,7 @@ class Statistics(commands.Cog):
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
         if interval is None:
-            interval = "1 day"
+            interval = '1 day'
         command = "SELECT * FROM voice WHERE {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
         command = command.format(selection.get_condition(), interval)
         async with db.MaybeAcquire() as con:
@@ -228,10 +226,10 @@ class Statistics(commands.Cog):
             entries = con.fetchall()
         embed = await self.get_voice_embed(ctx, selection, entries=entries, interval=interval)
         plot = await self.plot_24_hour_voice(entries=entries)
-        embed.set_image(url="attachment://graph.png")
-        return await ctx.send(embed=embed, file=discord.File(fp=plot, filename="graph.png"))
+        embed.set_image(url='attachment://graph.png')
+        return await ctx.send(embed=embed, file=discord.File(fp=plot, filename='graph.png'))
 
-    async def get_voice_embed(self, ctx, selection, *, interval="24 Hours", entries=None):
+    async def get_voice_embed(self, ctx, selection, *, interval='24 Hours', entries=None):
         if entries is None:
             command = "SELECT * FROM voice WHERE guild_id = {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
             command = command.format(selection.get_condition(), interval)
@@ -239,25 +237,25 @@ class Statistics(commands.Cog):
                 con.execute(command)
                 entries = con.fetchall()
 
-        description = f"Total of `{tutil.human(self.time_all(entries))}`"
+        description = f'Total of `{tutil.human(self.time_all(entries))}`'
         if not selection.is_member():
             formatted_people = []
             i = 0
-            for p, amount in self.time(entries, "user_id", n=5):
+            for p, amount in self.time(entries, 'user_id', n=5):
                 i += 1
-                formatted_people.append(f"`{i}.` <@{p}> - `{tutil.human(amount // 1)}`")
-            description += "\n\n **Voice | Top 5 Users**\n" \
-                            + "\n".join(formatted_people)
+                formatted_people.append(f'`{i}.` <@{p}> - `{tutil.human(amount // 1)}`')
+            description += '\n\n **Voice | Top 5 Users**\n' \
+                           + '\n'.join(formatted_people)
 
         if not selection.is_channel():
             formatted_channels = []
             i = 0
-            for c, amount in self.time(entries, "channel_id", n=5):
+            for c, amount in self.time(entries, 'channel_id', n=5):
                 i += 1
-                formatted_channels.append(f"`{i}.` <#{c}> - `{tutil.human(amount // 1)}`")
-            description += f"\n\n**Voice | Top 5 Channels**\n" + "\n".join(formatted_channels)
+                formatted_channels.append(f'`{i}.` <#{c}> - `{tutil.human(amount // 1)}`')
+            description += '\n\n**Voice | Top 5 Channels**\n' + '\n'.join(formatted_channels)
         embed = ctx.create_embed(
-            title=f"Past {interval} for {selection.get_name()}",
+            title=f'Past {interval} for {selection.get_name()}',
             description=description
         )
         return embed
@@ -266,37 +264,37 @@ class Statistics(commands.Cog):
         time = Counter()
         for e in entries:
             if e[key] is not None:
-                time[e[key]] += e["amount"].total_seconds()
+                time[e[key]] += e['amount'].total_seconds()
         return time.most_common(n)
 
     def time_all(self, entries):
         i = 0
         for e in entries:
-            i += e["amount"].total_seconds()
+            i += e['amount'].total_seconds()
         return i
 
     def count(self, entries, key, *, n=10):
         people = Counter()
         for e in entries:
             if e[key] is not None:
-                people[e[key]] += e["amount"]
+                people[e[key]] += e['amount']
         return people.most_common(n)
 
     def count_all(self, entries):
         i = 0
         for e in entries:
-            if e["channel_id"] is not None or (e["channel_id"] is None and e["user_id"] is None):
-                i += e["amount"]
+            if e['channel_id'] is not None or (e['channel_id'] is None and e['user_id'] is None):
+                i += e['amount']
         return i
 
     def count_compressed(self, entries):
         small = 0
         big = 0
         for e in entries:
-            if e["channel_id"] is None and e["user_id"] is None:
-                big += e["amount"]
-            elif e["channel_id"] is None or e["user_id"] is None:
-                small += e["amount"]
+            if e['channel_id'] is None and e['user_id'] is None:
+                big += e['amount']
+            elif e['channel_id'] is None or e['user_id'] is None:
+                small += e['amount']
         return small, big
 
     async def plot_24_hour_messages(self, entries):
@@ -308,7 +306,7 @@ class Statistics(commands.Cog):
         for e in entries:
             min_date = min(min_date, e['time'])
             max_date = max(max_date, e['time'])
-            data[e['time']] += e["amount"]
+            data[e['time']] += e['amount']
         if (max_date - min_date).days > 0:
             keys = [k for k in data.keys()]
             for k in keys:
@@ -328,14 +326,14 @@ class Statistics(commands.Cog):
         ax.xaxis.set_minor_locator(md.HourLocator(interval=1))
         date_fm = md.DateFormatter('%H:%M')
         ax.xaxis.set_major_formatter(date_fm)
-        ax.yaxis.grid(color="white", alpha=0.2)
+        ax.yaxis.grid(color='white', alpha=0.2)
 
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
 
-        ax.set_xlabel("Time (UTC)")
-        ax.set_ylabel("Messages")
+        ax.set_xlabel('Time (UTC)')
+        ax.set_ylabel('Messages')
         _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
                    color=str(self.main_color))
         fig.autofmt_xdate()
@@ -343,20 +341,28 @@ class Statistics(commands.Cog):
         plt.xlim([min_date, max_date])
 
         buffer = BytesIO()
-        fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
+        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
         buffer.seek(0)
         fig.clear()
         plt.close(fig)
         return buffer
+
+    async def plot_daily_message(self, entries):
+        messages = Counter()
+        for e in entries:
+            if e['channel_id'] is None and e['user_id']:
+                messages += e['amount']
+            elif e['channel_id'] is None:
+                messages += e['amount']
 
     async def plot_message_channel_pie(self, ctx, entries):
         lost = 0
         channels = Counter()
         id_to_name = {}
         for e in entries:
-            channel_id = e["channel_id"]
-            if channel_id is None and e["user_id"] is None:
-                lost += e["amount"]
+            channel_id = e['channel_id']
+            if channel_id is None and e['user_id'] is None:
+                lost += e['amount']
             elif channel_id is not None:
                 if channel_id not in id_to_name:
                     channel = ctx.guild.get_channel(channel_id)
@@ -364,14 +370,14 @@ class Statistics(commands.Cog):
                         id_to_name[channel_id] = channel.name
                     else:
                         id_to_name[channel_id] = str(channel_id)
-                channels[id_to_name[channel_id]] += e["amount"]
+                channels[id_to_name[channel_id]] += e['amount']
         name = []
         amount = []
         for c, a in channels.items():
             name.append(c)
             amount.append(a)
         if lost > 0:
-            labels = ["Lost", *name]
+            labels = ['Lost', *name]
             sizes = [lost, *amount]
         else:
             labels = name
@@ -380,10 +386,10 @@ class Statistics(commands.Cog):
         fig, ax = plt.subplots()
         _, _, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
         for text in autotexts:
-            text.set_color("black")
+            text.set_color('black')
         ax.axis('equal')
         buffer = BytesIO()
-        fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
+        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
         buffer.seek(0)
         fig.clear()
         plt.close(fig)
@@ -394,9 +400,9 @@ class Statistics(commands.Cog):
         users = Counter()
         id_to_name = {}
         for e in entries:
-            user_id = e["user_id"]
-            if user_id is None and e["user_id"] is None:
-                lost += e["amount"]
+            user_id = e['user_id']
+            if user_id is None and e['user_id'] is None:
+                lost += e['amount']
             elif user_id is not None:
                 if user_id not in id_to_name:
                     user = ctx.guild.get_member(user_id)
@@ -404,14 +410,14 @@ class Statistics(commands.Cog):
                         id_to_name[user_id] = user.name
                     else:
                         id_to_name[user_id] = str(user_id)
-                users[id_to_name[user_id]] += e["amount"]
+                users[id_to_name[user_id]] += e['amount']
         name = []
         amount = []
         for c, a in users.items():
             name.append(c)
             amount.append(a)
         if lost > 0:
-            labels = ["Lost", *name]
+            labels = ['Lost', *name]
             sizes = [lost, *amount]
         else:
             labels = name
@@ -420,10 +426,10 @@ class Statistics(commands.Cog):
         fig, ax = plt.subplots()
         _, _, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
         for text in autotexts:
-            text.set_color("black")
+            text.set_color('black')
         ax.axis('equal')
         buffer = BytesIO()
-        fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
+        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
         buffer.seek(0)
         fig.clear()
         plt.close(fig)
@@ -468,21 +474,21 @@ class Statistics(commands.Cog):
         ax.xaxis.set_minor_locator(md.HourLocator(interval=1))
         date_fm = md.DateFormatter('%H:%M')
         ax.xaxis.set_major_formatter(date_fm)
-        ax.yaxis.grid(color="white", alpha=0.2)
+        ax.yaxis.grid(color='white', alpha=0.2)
 
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_visible(False)
 
-        ax.set_xlabel("Time (UTC)")
-        ax.set_ylabel("Amount in Voice Channel")
+        ax.set_xlabel('Time (UTC)')
+        ax.set_ylabel('Amount in Voice Channel')
         _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
                    color=str(self.main_color))
         fig.autofmt_xdate()
 
         plt.xlim([min_date, max_date])
         buffer = BytesIO()
-        fig.savefig(buffer, format="png", transparent=True, bbox_inches="tight")
+        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
         buffer.seek(0)
         fig.clear()
         plt.close(fig)

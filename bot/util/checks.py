@@ -11,7 +11,10 @@ async def check_permissions(ctx, perms, *, check=all, channel=None):
     if channel is None:
         channel = ctx.channel
     resolved = channel.permissions_for(ctx.author)
-    return check(getattr(resolved, name, None) == value for name, value in perms.items())
+    perms_given = []
+    for name, perm in perms.items():
+        perms_given.append(getattr(resolved, name, None) == perm)
+    return check(perms_given)
 
 
 async def check_guild_permissions(ctx, perms, *, check=all):
@@ -23,25 +26,28 @@ async def check_guild_permissions(ctx, perms, *, check=all):
         return True
 
     resolved = ctx.author.guild_permissions
-    return check(getattr(resolved, name, None) == value for name, value in perms.items())
+    perms_given = []
+    for name, perm in perms.items():
+        perms_given.append(getattr(resolved, name, None) == perm)
+    return check(perms_given)
 
 
 def is_admin():
-    async def predicate(ctx):
+    async def predicate(ctx):   # noqa: WPS430
         return await check_guild_permissions(ctx, {'administrator': True})
 
     return commands.check(predicate)
 
 
 def is_mod():
-    async def predicate(ctx):
+    async def predicate(ctx):   # noqa: WPS430
         return await check_guild_permissions(ctx, {'manage_server': True, 'administrator': True}, check=any)
 
     return commands.check(predicate)
 
 
 def guild(*args):
-    async def predicate(ctx):
+    async def predicate(ctx):   # noqa: WPS430
         if ctx.guild is None:
             return False
         return ctx.guild.id in args
@@ -50,7 +56,7 @@ def guild(*args):
 
 
 def owner_or(*args):
-    async def predicate(ctx):
+    async def predicate(ctx):   # noqa: WPS430
         if ctx.author.id in args:
             return True
         return await ctx.bot.is_owner(ctx.author)

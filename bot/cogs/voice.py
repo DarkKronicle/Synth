@@ -1,15 +1,14 @@
+from datetime import datetime
+
+import bot.util.database as db
+import bot.util.time_util as tutil
+import discord
+from bot import synth_bot
 from dateutil.tz import gettz
 from discord.ext import commands
-import discord
-import bot.util.database as db
-from datetime import datetime
-import bot.util.time_util as tutil
 
 
-from bot import synth_bot
-
-
-class VoiceTable(db.Table, table_name="voice"):
+class VoiceTable(db.Table, table_name='voice'):
     guild_id = db.Column(db.Integer(big=True), index=True, nullable=False)
     channel_id = db.Column(db.Integer(big=True), nullable=False)
     user_id = db.Column(db.Integer(big=True), nullable=False)
@@ -21,8 +20,8 @@ class VoiceTable(db.Table, table_name="voice"):
         statement = super().create_table(overwrite=overwrite)
 
         # create the indexes
-        sql = "ALTER TABLE voice DROP CONSTRAINT IF EXISTS unique_voice;" \
-              "ALTER TABLE voice ADD CONSTRAINT unique_voice UNIQUE (channel_id, user_id, time);"
+        sql = 'ALTER TABLE voice DROP CONSTRAINT IF EXISTS unique_voice;' \
+              'ALTER TABLE voice ADD CONSTRAINT unique_voice UNIQUE (channel_id, user_id, time);'
 
         return statement + '\n' + sql
 
@@ -57,7 +56,7 @@ class Voice(commands.Cog):
         self.bot: synth_bot.SynthBot = bot
         self.cache = []
         self.setup = False
-        self.bot.add_loop("voiceupdate", self.update_loop)
+        self.bot.add_loop('voiceupdate', self.update_loop)
 
     async def update_loop(self, time):
         if not self.setup:
@@ -67,7 +66,7 @@ class Voice(commands.Cog):
             await self.push()
 
     def cog_unload(self):
-        self.bot.remove_loop("voiceupdate")
+        self.bot.remove_loop('voiceupdate')
 
     def setup_voice(self):
         for g in self.bot.guilds:
@@ -82,7 +81,7 @@ class Voice(commands.Cog):
         if len(self.cache) == 0:
             return
         elements = []
-        element_format = "({0}, {1}, {2}, {3}, {4})"
+        element_format = '({0}, {1}, {2}, {3}, {4})'
         for c in self.cache:
             dif = c.stopped_or_now() - c.start
             minutes = dif.total_seconds() // 60
@@ -92,15 +91,15 @@ class Voice(commands.Cog):
             elements.append(element_format.format(c.guild_id, c.channel_id, c.member_id, time_str, f"'{dif.total_seconds()} SECONDS'"))
         if len(elements) == 0:
             return
-        command = "INSERT INTO voice(guild_id, channel_id, user_id, time, amount) VALUES {0} " \
-                  "ON CONFLICT ON CONSTRAINT unique_voice" \
-                  " DO UPDATE SET amount = EXCLUDED.amount;"
+        command = 'INSERT INTO voice(guild_id, channel_id, user_id, time, amount) VALUES {0} ' \
+                  'ON CONFLICT ON CONSTRAINT unique_voice' \
+                  ' DO UPDATE SET amount = EXCLUDED.amount;'
         command = command.format(', '.join(elements))
         async with db.MaybeAcquire() as con:
             con.execute(command)
         self.cache = [c for c in self.cache if not c.has_stopped()]
 
-    @commands.command(name="*voicepush", hidden=True)
+    @commands.command(name='*voicepush', hidden=True)
     @commands.is_owner()
     async def voice_push(self, ctx):
         """Updates voice chat information in the database."""

@@ -8,9 +8,9 @@ Rapptz did in RoboDanny.
 Tutorial on how this stuff works: https://realpython.com/primer-on-python-decorators/#caching-return-values
 """
 import asyncio
-from functools import wraps
 import inspect
 import time
+from functools import wraps
 
 from lru import LRU
 

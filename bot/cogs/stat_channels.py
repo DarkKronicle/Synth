@@ -1,19 +1,19 @@
-from discord.ext import commands
-import discord
 import bot.util.checks as checks
 import bot.util.database as db
+import discord
+from discord.ext import commands
 
 
 class StatChannels(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.add_loop("statchannels", self.channel_loop)
+        self.bot.add_loop('statchannels', self.channel_loop)
 
     def cog_unload(self):
-        self.bot.remove_loop("statchannels")
+        self.bot.remove_loop('statchannels')
 
-    @commands.command(name="*refresh", hidden=True)
+    @commands.command(name='*refresh', hidden=True)
     @commands.is_owner()
     async def refresh(self, ctx):
         """Forces a refresh of the statistic channels"""
@@ -34,7 +34,7 @@ class StatChannels(commands.Cog):
         i = 0
         for e in entries:
             i += e['amount']
-        await channel.edit(name=f"{i}")
+        await channel.edit(name=f'{i}')
 
 
 def setup(bot):

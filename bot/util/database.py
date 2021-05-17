@@ -7,22 +7,22 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # I am pretty dang new to databases, but here is my third attempt at making this easier and more likely to succeed later
 # down the line.
 
+import datetime
 # Lots of inspiration came from https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/utils/db.py (which is under MPL)
 import decimal
 import inspect
 import pydoc
+import random
+import string
 from collections import OrderedDict
 
 import psycopg2
 import psycopg2.extras
-import datetime
-import random
-import string
 
 
 def random_key(*, min_num=5, max_num=10):
     length = random.SystemRandom().randint(min_num, max_num)
-    return "$" + ''.join(''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(length))) + "$"
+    return '$' + ''.join(''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(length))) + '$'
 
 
 class SchemaError(Exception):
@@ -45,7 +45,7 @@ class SQLType:
         if given != meta:
             cls = pydoc.locate(meta)
             if cls is None:
-                raise RuntimeError('Could not locate "%s".' % meta)
+                raise RuntimeError("Could not locate '{0}.'".format(meta))
 
         self = cls.__new__(cls)
         self.__dict__.update(data)
@@ -253,7 +253,7 @@ class ForeignKey(SQLType):
             raise TypeError('Cannot have non-SQLType derived sql_type')
 
         if not sql_type.is_real_type():
-            raise SchemaError('sql_type must be a "real" type')
+            raise SchemaError("sql_type must be a 'real' type")
 
         self.sql_type = sql_type.to_sql()
 
@@ -277,7 +277,7 @@ class Array(SQLType):
             raise TypeError('Cannot have non-SQLType derived sql_type')
 
         if not sql_type.is_real_type():
-            raise SchemaError('sql_type must be a "real" type')
+            raise SchemaError("sql_type must be a 'real' type")
 
         self.sql_type = sql_type.to_sql()
 
@@ -314,7 +314,7 @@ class Column:
         self.index_name = None
 
         # if sum(map(bool, (unique, primary_key, default is not None))) > 1:
-        #     raise SchemaError("'unique', 'primary_key', and 'default' are mutually exclusive.")
+        #     raise SchemaError(''unique', 'primary_key', and 'default' are mutually exclusive.')
 
     def create_statement(self):
         builder = [self.name, self.column_type.to_sql()]
@@ -323,11 +323,11 @@ class Column:
         if default is not None:
             builder.append('DEFAULT')
             if isinstance(default, str) and isinstance(self.column_type, String):
-                builder.append("'%s'" % default)
+                builder.append("'{0}'".format(default))
             elif isinstance(default, bool):
                 builder.append(str(default).upper())
             else:
-                builder.append("(%s)" % default)
+                builder.append('(%s)' % default)
         elif self.unique:
             builder.append('UNIQUE')
         if not self.nullable:
@@ -369,7 +369,7 @@ class MaybeAcquire:
     async def __aenter__(self):
         if self.connection is None:
             self._cleanup = True
-            self._connection = psycopg2.connect(f"dbname={Table.name} user={Table.user} password={Table.password}")
+            self._connection = psycopg2.connect(f'dbname={Table.name} user={Table.user} password={Table.password}')
             c = self._connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
             return c
         return self.connection.cursor()
@@ -446,8 +446,8 @@ class Table(metaclass=TableMeta):
 
         if len(primary_keys) > 0:
             column_creations.append('PRIMARY KEY ({})'.format(', '.join(primary_keys)))
-        builder.append("({})".format(', '.join(column_creations)))
-        statements.append(' '.join(builder) + ";")
+        builder.append('({})'.format(', '.join(column_creations)))
+        statements.append(' '.join(builder) + ';')
 
         for column in cls.columns:
             if column.index:
@@ -482,7 +482,7 @@ class Table(metaclass=TableMeta):
                 raise TypeError(fmt.format(column, check, value))
 
             if not isinstance(value, int):
-                formatted = f"$${str(value)}$$"
+                formatted = f'$${str(value)}$$'
             else:
                 formatted = str(value)
             verified[column.name] = formatted
@@ -513,7 +513,7 @@ class Table(metaclass=TableMeta):
             verified[column.name] = value
         statements = []
         for col in verified:
-            statements.append("{0} = $${1}$$".format(col, verified[col]))
+            statements.append('{0} = $${1}$$'.format(col, verified[col]))
 
         sql = 'REMOVE FROM {0} WHERE {1};'.format(cls.tablename, ' AND '.join(statements))
 
