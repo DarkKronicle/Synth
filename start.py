@@ -12,6 +12,9 @@ import importlib
 import logging
 
 
+logging.getLogger().setLevel(logging.INFO)
+
+
 def create_tables(connection):
     run = asyncio.get_event_loop().run_until_complete
     for table in db.Table.all_tables():
