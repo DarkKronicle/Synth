@@ -33,7 +33,7 @@ def round_time(time_object=None, round_to=1800):
         time_object = utc.localize(datetime.now())
         time_object = time_object.astimezone(zone)
 
-    stripped_dt = time_object.replace(tzinfo=None) - time_object
+    stripped_dt = time_object.replace(tzinfo=None) - time_object.replace(tzinfo=None)
     seconds = (time_object.replace(tzinfo=None) - stripped_dt).seconds
     rounding = (seconds + round_to / 2) // round_to * round_to
     return time_object + timedelta(0, rounding - seconds, -time_object.microsecond)
