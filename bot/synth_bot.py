@@ -152,7 +152,7 @@ class SynthBot(commands.Bot):
             except Exception as error:
                 if isinstance(error, (discord.Forbidden, discord.errors.Forbidden)):
                     return
-                traceback.print_exc(error)
+                traceback.print_exc()
 
     first_loop = True
 

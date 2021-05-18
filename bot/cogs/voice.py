@@ -1,10 +1,7 @@
-from datetime import datetime
-
-import bot.util.database as db
-import bot.util.time_util as tutil
+from bot.util import database as db
+from bot.util import time_util as tutil
 import discord
 from bot import synth_bot
-from dateutil.tz import gettz
 from discord.ext import commands
 
 
@@ -19,11 +16,10 @@ class VoiceTable(db.Table, table_name='voice'):
     def create_table(cls, *, overwrite=False):
         statement = super().create_table(overwrite=overwrite)
 
-        # create the indexes
-        sql = 'ALTER TABLE voice DROP CONSTRAINT IF EXISTS unique_voice;' \
-              'ALTER TABLE voice ADD CONSTRAINT unique_voice UNIQUE (channel_id, user_id, time);'
+        # create the constraints
+        sql = 'ALTER TABLE voice DROP CONSTRAINT IF EXISTS unique_voice; ALTER TABLE voice ADD CONSTRAINT unique_voice UNIQUE (channel_id, user_id, time);'
 
-        return statement + '\n' + sql
+        return '{0}\n{1}'.format(statement, sql)
 
 
 class VoiceLog:
@@ -37,9 +33,7 @@ class VoiceLog:
         self.stop = None
 
     def has_stopped(self):
-        if self.stop is None:
-            return False
-        return True
+        return self.stop is not None
 
     def force_stop(self):
         self.stop = tutil.round_time(tutil.get_utc(), 1)
@@ -68,36 +62,33 @@ class Voice(commands.Cog):
     def cog_unload(self):
         self.bot.remove_loop('voiceupdate')
 
-    def setup_voice(self):
-        for g in self.bot.guilds:
-            g: discord.Guild
-            for v in g.voice_channels:
-                v: discord.VoiceChannel
-                for m in v.members:
-                    if self.should_member_log(m):
-                        self.cache.append(VoiceLog(m.id, v.id, g.id))
-
     async def push(self):
-        if len(self.cache) == 0:
+        if not self.cache:
             return
         elements = []
         element_format = '({0}, {1}, {2}, {3}, {4})'
-        for c in self.cache:
-            dif = c.stopped_or_now() - c.start
+        for cached in self.cache:
+            dif = cached.stopped_or_now() - cached.start
             minutes = dif.total_seconds() // 60
             if minutes < 1:
                 continue
-            time_str = c.start.strftime("'%Y-%m-%d %H:%M:%S'")
-            elements.append(element_format.format(c.guild_id, c.channel_id, c.member_id, time_str, f"'{dif.total_seconds()} SECONDS'"))
-        if len(elements) == 0:
+            time_str = cached.start.strftime("'%Y-%m-%d %H:%M:%S'")
+            elements.append(
+                element_format.format(
+                    cached.guild_id,
+                    cached.channel_id,
+                    cached.member_id,
+                    time_str,
+                    "{0} SECONDS'".format(dif.total_seconds()),
+                ),
+            )
+        if not elements:
             return
-        command = 'INSERT INTO voice(guild_id, channel_id, user_id, time, amount) VALUES {0} ' \
-                  'ON CONFLICT ON CONSTRAINT unique_voice' \
-                  ' DO UPDATE SET amount = EXCLUDED.amount;'
+        command = 'INSERT INTO voice(guild_id, channel_id, user_id, time, amount) VALUES {0} ON CONFLICT ON CONSTRAINT unique_voice DO UPDATE SET amount = EXCLUDED.amount;'
         command = command.format(', '.join(elements))
         async with db.MaybeAcquire() as con:
             con.execute(command)
-        self.cache = [c for c in self.cache if not c.has_stopped()]
+        self.cache = [cached for cached in self.cache if not cached.has_stopped()]  # noqa: WPS441
 
     @commands.command(name='*voicepush', hidden=True)
     @commands.is_owner()
@@ -107,9 +98,7 @@ class Voice(commands.Cog):
         await ctx.check(0)
 
     def should_member_log(self, member: discord.Member):
-        if member.bot:
-            return False
-        return True
+        return not member.bot
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
@@ -117,24 +106,51 @@ class Voice(commands.Cog):
             return
 
         if after.channel is None:
-            for c in self.cache:
-                if c.member_id == member.id and not c.has_stopped():
-                    c.force_stop()
+            self.update_disconnect(member, after, before)
             return
 
         if after.afk:
             return
 
         if before.channel is None:
-            self.cache.append(VoiceLog(member.id, after.channel.id, after.channel.guild.id))
+            self.update_new(member, before, after)
             return
 
         if after.channel != before.channel:
-            for c in self.cache:
-                if c.member_id == member.id and not c.has_stopped():
-                    c.force_stop()
-            self.cache.append(VoiceLog(member.id, after.channel.id, after.channel.guild.id))
+            self.update_switch(member, before, after)
             return
+
+    def update_disconnect(self, member, after, before):
+        for cached in self.cache:
+            if cached.member_id == member.id and not cached.has_stopped():
+                cached.force_stop()
+
+    def update_new(self, member, after, before):
+        self.cache.append(VoiceLog(
+            member.id,
+            after.channel.id,
+            after.channel.guild.id,
+        ))
+
+    def update_switch(self, member, after, before):
+        for cached in self.cache:
+            if cached.member_id == member.id and not cached.has_stopped():
+                cached.force_stop()
+        self.cache.append(VoiceLog(
+            member.id,
+            after.channel.id,
+            after.channel.guild.id,
+        ))
+
+    def setup_voice(self):
+        for guild in self.bot.guilds:
+            for voice in guild.voice_channels:
+                self._set_channel(voice)
+
+    def _set_channel(self, voice):
+        for member in voice.members:
+            if self.should_member_log(member):
+                self.cache.append(VoiceLog(member.id, voice.id, voice.guild.id))
 
 
 def setup(bot):

@@ -1,3 +1,4 @@
+# Lots of classes are very small data objects.
 """
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17,42 +18,50 @@ import string
 from collections import OrderedDict
 
 import psycopg2
-import psycopg2.extras
+from psycopg2 import extras as pextras
 
 
-def random_key(*, min_num=5, max_num=10):
-    length = random.SystemRandom().randint(min_num, max_num)
-    return '$' + ''.join(''.join(random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(length))) + '$'
+def random_key(*, min_num=5, max_num=10, forced_num=-1):
+    if forced_num <= 0:
+        length = random.SystemRandom().randint(min_num, max_num)
+    else:
+        length = forced_num
+    return ''.join(
+        ''.join(
+            random.SystemRandom().choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(length)
+        ),
+    )
 
 
 class SchemaError(Exception):
-    pass
+    """An exception thrown if table can't exist"""
 
 
 class SQLType:
     python = None
 
     def to_dict(self):
-        o = self.__dict__.copy()
-        cls = self.__class__
-        o['__meta__'] = cls.__module__ + '.' + cls.__qualname__
-        return o
+        sql_copy = self.__dict__.copy()
+        class_obj = self.__class__
+        sql_copy['__meta__'] = '{0}.{1}'.format(class_obj.__module__, class_obj.__qualname__)  # noqa: WPS609
+        return sql_copy
 
     @classmethod
-    def from_dict(cls, data):
-        meta = data.pop('__meta__')
-        given = cls.__module__ + '.' + cls.__qualname__
+    def from_dict(cls, previous_dict):
+        meta = previous_dict.pop('__meta__')
+        given = '{0}.{1}'.format(cls.__module__, cls.__qualname__)
+        sql_class = cls
         if given != meta:
-            cls = pydoc.locate(meta)
-            if cls is None:
+            sql_class = pydoc.locate(meta)
+            if sql_class is None:
                 raise RuntimeError("Could not locate '{0}.'".format(meta))
 
-        self = cls.__new__(cls)
-        self.__dict__.update(data)
-        return self
+        self_object = sql_class.__new__(sql_class)  # noqa:  WPS609
+        self_object.__dict__.update(previous_dict)  # noqa:  WPS609
+        return self_object
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__  # noqa:  WPS609
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -124,30 +133,49 @@ class Integer(SQLType):
 
     def to_sql(self):
         if self.auto_increment:
-            if self.big:
-                return 'BIGSERIAL'
-            if self.small:
-                return 'SMALLSERIAL'
-            return 'SERIAL'
+            return self._auto_inc()
+
         if self.big:
             return 'BIGINT'
+
         if self.small:
             return 'SMALLINT'
+
         return 'INTEGER'
 
     def is_real_type(self):
         return not self.auto_increment
 
+    def _auto_inc(self):
+        if self.big:
+            return 'BIGSERIAL'
+        if self.small:
+            return 'SMALLSERIAL'
+        return 'SERIAL'
+
 
 class Interval(SQLType):
     python = datetime.timedelta
+    fields = [
+        'YEAR',
+        'MONTH',
+        'DAY',
+        'HOUR',
+        'MINUTE',
+        'SECOND',
+        'YEAR TO MONTH',
+        'DAY TO HOUR',
+        'DAY TO MINUTE',
+        'DAY TO SECOND',
+        'HOUR TO MINUTE',
+        'HOUR TO SECOND',
+        'MINUTE TO SECOND',
+    ]
 
     def __init__(self, field=None):
         if field:
             field = field.upper()
-            if field not in ('YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND',
-                             'YEAR TO MONTH', 'DAY TO HOUR', 'DAY TO MINUTE', 'DAY TO SECOND',
-                             'HOUR TO MINUTE', 'HOUR TO SECOND', 'MINUTE TO SECOND'):
+            if field not in self.fields:
                 raise SchemaError('invalid interval specified')
             self.field = field
         else:
@@ -155,7 +183,7 @@ class Interval(SQLType):
 
     def to_sql(self):
         if self.field:
-            return 'INTERVAL ' + self.field
+            return 'INTERVAL {0}'.format(self.field)
         return 'INTERVAL'
 
 
@@ -216,33 +244,40 @@ class JSON(SQLType):
 
 
 class ForeignKey(SQLType):
-    def __init__(self, table, column, *, sql_type=None, on_delete='CASCADE', on_update='NO ACTION'):
+    valid_actions = {
+        'NO ACTION',
+        'RESTRICT',
+        'CASCADE',
+        'SET NULL',
+        'SET DEFAULT',
+    }
+
+    def __init__(self, table, column, **kwargs):  # noqa: WPS238
         if not table or not isinstance(table, str):
             raise SchemaError('missing table to reference (must be string)')
 
-        valid_actions = (
-            'NO ACTION',
-            'RESTRICT',
-            'CASCADE',
-            'SET NULL',
-            'SET DEFAULT',
-        )
+        self.on_update = kwargs.pop('on_update', 'NO ACTION').upper()
+        self.on_delete = kwargs.pop('on_delete', 'CASCADE').upper()
 
-        on_delete = on_delete.upper()
-        on_update = on_update.upper()
+        if self.on_delete not in self.valid_actions:
+            raise TypeError('on_delete must be one of {0}.'.format(self.valid_actions))
 
-        if on_delete not in valid_actions:
-            raise TypeError('on_delete must be one of %s.' % valid_actions)
-
-        if on_update not in valid_actions:
-            raise TypeError('on_update must be one of %s.' % valid_actions)
-
+        if self.on_update not in self.valid_actions:
+            raise TypeError('on_update must be one of {0}.'.format(self.valid_actions))
 
         self.table = table
         self.column = column
-        self.on_update = on_update
-        self.on_delete = on_delete
 
+        self.sql_type = self._check_sql_type(kwargs.pop('sql_type', None))
+
+    def is_real_type(self):
+        return False
+
+    def to_sql(self):
+        fmt = '{0.sql_type} REFERENCES {0.table} ({0.column}) ON DELETE {0.on_delete} ON UPDATE {0.on_update}'
+        return fmt.format(self)
+
+    def _check_sql_type(self, sql_type):
         if sql_type is None:
             sql_type = Integer
 
@@ -255,15 +290,7 @@ class ForeignKey(SQLType):
         if not sql_type.is_real_type():
             raise SchemaError("sql_type must be a 'real' type")
 
-        self.sql_type = sql_type.to_sql()
-
-    def is_real_type(self):
-        return False
-
-    def to_sql(self):
-        fmt = '{0.sql_type} REFERENCES {0.table} ({0.column})' \
-              ' ON DELETE {0.on_delete} ON UPDATE {0.on_update}'
-        return fmt.format(self)
+        return sql_type.to_sql()
 
 
 class Array(SQLType):
@@ -291,13 +318,10 @@ class Array(SQLType):
         return False
 
 
-class Column:
-    __slots__ = ('column_type', 'index', 'primary_key', 'nullable',
-                 'default', 'unique', 'name', 'index_name')
+class Column:   # noqa: WPS230
+    __slots__ = ('column_type', 'index', 'primary_key', 'nullable', 'default', 'unique', 'name', 'index_name')
 
-    def __init__(self, column_type, *, index=False, primary_key=False,
-                 nullable=True, unique=False, default=None, name=None):
-
+    def __init__(self, column_type, **kwargs):
         if inspect.isclass(column_type):
             column_type = column_type()
 
@@ -305,16 +329,13 @@ class Column:
             raise TypeError('Cannot have a non-SQLType derived column_type')
 
         self.column_type = column_type
-        self.index = index
-        self.unique = unique
-        self.primary_key = primary_key
-        self.nullable = nullable
-        self.default = default
-        self.name = name
+        self.index = kwargs.pop('index', False)
+        self.unique = kwargs.pop('unique', False)
+        self.primary_key = kwargs.pop('primary_key', False)
+        self.nullable = kwargs.pop('nullable', True)
+        self.default = kwargs.pop('default', None)
+        self.name = kwargs.pop('name', None)
         self.index_name = None
-
-        # if sum(map(bool, (unique, primary_key, default is not None))) > 1:
-        #     raise SchemaError(''unique', 'primary_key', and 'default' are mutually exclusive.')
 
     def create_statement(self):
         builder = [self.name, self.column_type.to_sql()]
@@ -327,7 +348,7 @@ class Column:
             elif isinstance(default, bool):
                 builder.append(str(default).upper())
             else:
-                builder.append('(%s)' % default)
+                builder.append('({0})'.format(default))
         elif self.unique:
             builder.append('UNIQUE')
         if not self.nullable:
@@ -345,6 +366,11 @@ class PrimaryKeyColumn(Column):
 
 class MaybeAcquire:
 
+    def __init__(self, connection=None, cleanup=True):
+        self.connection = connection
+        self._connection = None
+        self._cleanup = cleanup
+
     def release(self):
         if self.connection is not None:
             self.connection.commit()
@@ -356,37 +382,33 @@ class MaybeAcquire:
 
     def cursor(self):
         if self.connection is not None:
-            return self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            return self.connection.cursor(cursor_factory=pextras.DictCursor)
         if self._connection is not None:
-            return self._connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            return self._connection.cursor(cursor_factory=pextras.DictCursor)
         return None
-
-    def __init__(self, connection=None, cleanup=True):
-        self.connection = connection
-        self._connection = None
-        self._cleanup = cleanup
 
     async def __aenter__(self):
         if self.connection is None:
             self._cleanup = True
-            self._connection = psycopg2.connect(f'dbname={Table.name} user={Table.user} password={Table.password}')
-            c = self._connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            return c
+            self._connection = psycopg2.connect(
+                'dbname={name} user={user} password={password}'.format(
+                    name=Table.name,
+                    user=Table.user,
+                    password=Table.password,
+                ),
+            )
+            return self._connection.cursor(cursor_factory=pextras.DictCursor)
         return self.connection.cursor()
 
     async def __aexit__(self, *args):
-        if self._cleanup:
-            if self._connection is not None:
-                self._connection.commit()
-                self._connection.close()
+        if self._cleanup and self._connection is not None:
+            self._connection.commit()
+            self._connection.close()
 
 
 class TableMeta(type):
-    @classmethod
-    def __prepare__(mcs, name, bases, **kwargs):
-        return OrderedDict()
 
-    def __new__(mcs, name, parents, attributes, **kwargs):
+    def __new__(cls, name, parents, attributes, **kwargs):
         columns = []
 
         try:
@@ -397,22 +419,26 @@ class TableMeta(type):
         attributes['__tablename__'] = table_name
         tablename = table_name
 
-        for elem, value in attributes.items():
-            if isinstance(value, Column):
-                if value.name is None:
-                    value.name = elem
+        for attribute, attribute_value in attributes.items():
+            if isinstance(attribute_value, Column):
+                if attribute_value.name is None:
+                    attribute_value.name = attribute
 
-                if value.index:
-                    value.index_name = '%s_%s_idx' % (table_name, value.name)
+                if attribute_value.index:
+                    attribute_value.index_name = '{0}_{1}_idx'.format(table_name, attribute_value.name)
 
-                columns.append(value)
+                columns.append(attribute_value)
 
         attributes['columns'] = columns
         attributes['tablename'] = tablename
-        return super().__new__(mcs, name, parents, attributes)
+        return super().__new__(cls, name, parents, attributes)
 
     def __init__(cls, name, parents, dct, **kwargs):
         super().__init__(name, parents, dct)
+
+    @classmethod
+    def __prepare__(cls, name, bases, **kwargs):
+        return OrderedDict()
 
 
 class Table(metaclass=TableMeta):
@@ -444,10 +470,10 @@ class Table(metaclass=TableMeta):
             if col.primary_key:
                 primary_keys.append(col.name)
 
-        if len(primary_keys) > 0:
-            column_creations.append('PRIMARY KEY ({})'.format(', '.join(primary_keys)))
-        builder.append('({})'.format(', '.join(column_creations)))
-        statements.append(' '.join(builder) + ';')
+        if primary_keys:
+            column_creations.append('PRIMARY KEY ({0})'.format(', '.join(primary_keys)))
+        builder.append('({0})'.format(', '.join(column_creations)))
+        statements.append('{0};'.format(' '.join(builder)))
 
         for column in cls.columns:
             if column.index:
@@ -459,64 +485,6 @@ class Table(metaclass=TableMeta):
     @classmethod
     async def create(cls, connection=None):
         sql = cls.create_table(overwrite=False)
-        async with MaybeAcquire(connection=connection) as con:
-            con.execute(sql)
-
-    @classmethod
-    async def insert(cls, connection=None, **kwargs):
-        """Inserts an element to the table."""
-
-        # verify column names:
-        verified = {}
-        for column in cls.columns:
-            try:
-                value = kwargs[column.name]
-            except KeyError:
-                continue
-
-            check = column.column_type.python
-            if value is None and not column.nullable:
-                raise TypeError('Cannot pass None to non-nullable column %s.' % column.name)
-            elif not check or not isinstance(value, check):
-                fmt = 'column {0.name} expected {1.__name__}, received {2.__class__.__name__}'
-                raise TypeError(fmt.format(column, check, value))
-
-            if not isinstance(value, int):
-                formatted = f'$${str(value)}$$'
-            else:
-                formatted = str(value)
-            verified[column.name] = formatted
-
-        sql = 'INSERT INTO {0} ({1}) VALUES ({2});'.format(cls.tablename, ', '.join(verified),
-                                                           ', '.join(str(i) for i, _ in enumerate(verified, 1)))
-
-        async with MaybeAcquire(connection=connection) as con:
-            con.execute(sql, *verified.values())
-
-    @classmethod
-    async def remove(cls, connection=None, **kwargs):
-        # verify column names:
-        verified = {}
-        for column in cls.columns:
-            try:
-                value = kwargs[column.name]
-            except KeyError:
-                continue
-
-            check = column.column_type.python
-            if value is None and not column.nullable:
-                raise TypeError('Cannot pass None to non-nullable column %s.' % column.name)
-            elif not check or not isinstance(value, check):
-                fmt = 'column {0.name} expected {1.__name__}, received {2.__class__.__name__}'
-                raise TypeError(fmt.format(column, check, value))
-
-            verified[column.name] = value
-        statements = []
-        for col in verified:
-            statements.append('{0} = $${1}$$'.format(col, verified[col]))
-
-        sql = 'REMOVE FROM {0} WHERE {1};'.format(cls.tablename, ' AND '.join(statements))
-
         async with MaybeAcquire(connection=connection) as con:
             con.execute(sql)
 

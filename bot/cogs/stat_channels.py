@@ -1,7 +1,21 @@
-import bot.util.checks as checks
-import bot.util.database as db
+from bot.util import database as db
 import discord
 from discord.ext import commands
+from enum import Enum
+
+
+class ChannelTypes(Enum):
+    members = 0
+    messages = 1
+    voice = 2
+
+
+class StatChannelsTable(db.Table, tablename='stat_channels'):
+    guild_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
+    channel_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
+    type = db.Column(db.Integer(small=True), nullable=False)
+    name = db.Column(db.String())
+    arguments = db.Column(db.String())
 
 
 class StatChannels(commands.Cog):

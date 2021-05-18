@@ -160,7 +160,7 @@ class Messages(commands.Cog):
             for channel_id, time, interval in channels.keys():
                 amount = channels[(channel_id, time, interval)]
                 channel_values.append(
-                    value.format(str(guild_id), str(channel_id), str(amount), f"TIMESTAMP '{time}'', f'INTERVAL '{interval}'"))
+                    value.format(str(guild_id), str(channel_id), str(amount), f"TIMESTAMP '{time}'", f"INTERVAL '{interval}'"))
 
             channel_command = 'INSERT INTO messages(guild_id, channel_id, amount, time, interval) VALUES {0} ' \
                               'ON CONFLICT ON CONSTRAINT unique_message' \
@@ -238,7 +238,7 @@ class Messages(commands.Cog):
             for time, interval in channels.keys():
                 amount = channels[(time, interval)]
                 channel_values.append(
-                    value.format(str(guild_id), str(amount), f"TIMESTAMP '{time}'', f'INTERVAL '{interval}'"))
+                    value.format(str(guild_id), str(amount), f"TIMESTAMP '{time}'", f"INTERVAL '{interval}'"))
 
             channel_command = 'INSERT INTO messages(guild_id, amount, time, interval) VALUES {0} ' \
                               'ON CONFLICT ON CONSTRAINT unique_message' \

@@ -1,3 +1,5 @@
+import contextlib
+
 import discord
 from discord.ext import menus
 
@@ -8,10 +10,8 @@ class Pages(menus.MenuPages):
         super().__init__(source, check_embeds=True, **kwargs)
 
     async def finalize(self, timed_out):
-        try:
+        with contextlib.suppress(discord.HTTPException):
             await self.message.clear_reactions()
-        except discord.HTTPException:
-            pass
 
 
 class ImagePaginatorSource(menus.ListPageSource):
@@ -25,8 +25,10 @@ class ImagePaginatorSource(menus.ListPageSource):
         maximum = self.get_max_pages()
         embed = self.embed.copy()
         if maximum > 1:
-            embed.set_footer(text=f'Page {menu.current_page + 1}/{maximum} ({len(self.entries)} images)')
-        embed.set_image(url=f'attachment://{page.filename}')
+            embed.set_footer(
+                text='Page {0}/{1} ({2} images)'.format(menu.current_page + 1, maximum, str(len(self.entries))),
+            )
+        embed.set_image(url='attachment://{0}'.format(page.filename))
         return {'embed': embed, 'file': page}
 
 
@@ -34,18 +36,14 @@ class ImagePaginator(Pages):
 
     def __init__(self, embed, images):
         self.images = images
-        self.files = []
-        f = 0
-        for i in self.images:
-            self.files.append(discord.File(fp=i, filename=f'graph{f}.png'))
-            f += 1
-        super().__init__(ImagePaginatorSource(embed, self.files))
+        self.image_files = []
+        for image_index, image in enumerate(self.images):
+            self.image_files.append(discord.File(fp=image, filename='graph{0}.png'.format(image_index)))
+        super().__init__(ImagePaginatorSource(embed, self.image_files))
 
     async def send_initial_message(self, ctx, channel):
         page = await self._source.get_page(self.current_page)
         kwargs = await self._get_kwargs_from_page(page)
-
-        # kwargs['files'] = files
         return await channel.send(**kwargs)
 
     async def show_page(self, page_number):
@@ -53,5 +51,3 @@ class ImagePaginator(Pages):
         await self.message.delete()
         self.message = None
         await self.start(self.ctx)
-
-
