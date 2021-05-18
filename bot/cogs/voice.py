@@ -113,11 +113,11 @@ class Voice(commands.Cog):
             return
 
         if before.channel is None:
-            self.update_new(member, before, after)
+            self.update_new(member, after, before)
             return
 
         if after.channel != before.channel:
-            self.update_switch(member, before, after)
+            self.update_switch(member, after, after)
             return
 
     def update_disconnect(self, member, after, before):
