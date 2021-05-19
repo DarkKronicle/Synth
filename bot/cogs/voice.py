@@ -79,7 +79,7 @@ class Voice(commands.Cog):
                     cached.channel_id,
                     cached.member_id,
                     time_str,
-                    "{0} SECONDS'".format(dif.total_seconds()),
+                    "'{0} SECONDS'".format(dif.total_seconds()),
                 ),
             )
         if not elements:

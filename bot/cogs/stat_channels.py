@@ -1,7 +1,11 @@
+import typing
+
 from bot.util import database as db
 import discord
 from discord.ext import commands
 from enum import Enum
+from bot.cogs.channels import *
+from bot.util.context import Context
 
 
 class ChannelTypes(Enum):
@@ -9,8 +13,14 @@ class ChannelTypes(Enum):
     messages = 1
     voice = 2
 
+    @classmethod
+    def to_class(cls, number):
+        if number == ChannelTypes.messages:
+            return MessagesChannel()
+        return None
 
-class StatChannelsTable(db.Table, tablename='stat_channels'):
+
+class StatChannelsTable(db.Table, table_name='stat_channels'):
     guild_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
     channel_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
     type = db.Column(db.Integer(small=True), nullable=False)
@@ -38,17 +48,40 @@ class StatChannels(commands.Cog):
         if time.minute % 30 == 0:
             await self.refresh_channels()
 
+    @commands.command(name="*create", hidden=True)
+    @commands.is_owner()
+    async def create_default(self, ctx: Context, channel: typing.Union[discord.VoiceChannel, discord.TextChannel], *, text: str = "{0}"):
+        await ChannelTypes.to_class(ChannelTypes.members).create(ctx, channel, text)
+
     async def refresh_channels(self):
-        channel: discord.VoiceChannel = self.bot.get_guild(753693459369427044).get_channel(842214460701933639)
-        command = "SELECT amount FROM messages WHERE guild_id = {0} AND time >= NOW() at time zone 'utc' - INTERVAL '24 HOURS';"
-        command = command.format(753693459369427044)
+        to_edit = []
         async with db.MaybeAcquire() as con:
+            command = "SELECT * FROM stat_channels;"
             con.execute(command)
             entries = con.fetchall()
-        i = 0
-        for e in entries:
-            i += e['amount']
-        await channel.edit(name=f'{i}')
+            for entry in entries:
+                guild_id = entry['guild_id']
+                channel_id = entry['channel_id']
+                channel_type = entry['type']
+                name = entry['name']
+                arguments = entry['arguments']
+                try:
+                    converter = ChannelTypes.to_class(
+                        ChannelTypes(channel_type),
+                    )
+                except KeyError:
+                    continue
+                channel_name = await converter.name_from_sql(guild_id, channel_id, name, arguments, con)
+                to_edit.append((guild_id, channel_id, channel_name))
+
+        for guild_id, channel_id, new_name in to_edit:
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            channel = guild.get_channel(channel_id)
+            if channel is None:
+                continue
+            await channel.edit(name=new_name)
 
 
 def setup(bot):
