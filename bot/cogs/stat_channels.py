@@ -51,7 +51,7 @@ class StatChannels(commands.Cog):
     @commands.command(name="*create", hidden=True)
     @commands.is_owner()
     async def create_default(self, ctx: Context, channel: typing.Union[discord.VoiceChannel, discord.TextChannel], *, text: str = "{0}"):
-        await ChannelTypes.to_class(ChannelTypes.members).create(ctx, channel, text)
+        await ChannelTypes.to_class(ChannelTypes.messages).create(ctx, channel, text)
 
     async def refresh_channels(self):
         to_edit = []
