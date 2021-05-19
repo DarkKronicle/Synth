@@ -9,7 +9,7 @@ class MessagesChannel(StatChannel):
         self.channel_type = 1
 
     async def name_from_sql(self, guild_id, channel_id, name, text, connection) -> str:
-        command = "SELECT amount FROM messages WHERE guild_id = {0} AND time >= NOW() at time zone 'utc' - INTERVAL '24 HOURS';"
+        command = "SELECT * FROM messages WHERE guild_id = {0} AND time >= NOW() at time zone 'utc' - INTERVAL '24 HOURS';"
         command = command.format(guild_id)
         connection.execute(command)
         entries = connection.fetchall()
