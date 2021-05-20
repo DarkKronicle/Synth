@@ -23,6 +23,8 @@ send_error = (
     commands.BadArgument,
     commands.MemberNotFound,
     commands.ChannelNotFound,
+    commands.BadUnionArgument,
+    commands.MissingRequiredArgument,
 )
 
 

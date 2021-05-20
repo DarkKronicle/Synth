@@ -1,11 +1,13 @@
 import typing
 
-from bot.util import database as db
 import discord
+
+from bot.util import database as db, checks
 from discord.ext import commands
 from enum import Enum
 from bot.cogs.channels import *
 from bot.util.context import Context
+from bot.util.paginator import Prompt
 
 
 class ChannelTypes(Enum):
@@ -21,6 +23,7 @@ class ChannelTypes(Enum):
 
 
 class StatChannelsTable(db.Table, table_name='stat_channels'):
+    id = db.Column(db.Integer(auto_increment=True), nullable=False)
     guild_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
     channel_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
     type = db.Column(db.Integer(small=True), nullable=False)
@@ -29,6 +32,7 @@ class StatChannelsTable(db.Table, table_name='stat_channels'):
 
 
 class StatChannels(commands.Cog):
+    """Modifying and interacting with stat channels."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -47,11 +51,6 @@ class StatChannels(commands.Cog):
     async def channel_loop(self, time):
         if time.minute % 30 == 0:
             await self.refresh_channels()
-
-    @commands.command(name="*create", hidden=True)
-    @commands.is_owner()
-    async def create_default(self, ctx: Context, channel: typing.Union[discord.VoiceChannel, discord.TextChannel], *, text: str = "{0}"):
-        await ChannelTypes.to_class(ChannelTypes.messages).create(ctx, channel, text)
 
     async def refresh_channels(self):
         to_edit = []
@@ -82,6 +81,108 @@ class StatChannels(commands.Cog):
             if channel is None:
                 continue
             await channel.edit(name=new_name)
+
+    @commands.group(name='!channels', aliases=['!channel'])
+    @checks.is_mod()
+    @commands.guild_only()
+    async def channels(self, ctx: Context):
+        """View and configure statistic channels."""
+        if ctx.invoked_subcommand is None:
+            await ctx.send_help('!channels')
+
+    @channels.command(name='list')
+    async def list_channels(self, ctx: Context):
+        """
+        List's the current stat channels for the server.
+        """
+        command = 'SELECT * FROM stat_channels WHERE guild_id = {0};'
+        async with db.MaybeAcquire() as con:
+            con.execute(command.format(ctx.guild.id))
+            entries = con.fetchall()
+        message = []
+        for e in entries:
+            channel_type = e['type']
+            try:
+                converter = ChannelTypes.to_class(ChannelTypes(channel_type))
+            except KeyError:
+                message.append('Error on {0}'.format(e['guild_id']))
+                continue
+            message.append('{1} (id {0})'.format(
+                e['id'],
+                await converter.get_info(e['guild_id'], e['channel_id'], e['name'], e['arguments']),
+            ))
+        await ctx.send(embed=ctx.create_embed(description='\n'.join(message)))
+
+    @channels.command(name="delete")
+    @commands.cooldown(1, 10)
+    async def delete_channel(self, ctx: Context, id: int):
+        """
+        Delete's a statistic channel.
+
+        This will not delete the channel, just remove it from being updated. For ID use the ID from `!channels list`.
+
+        Examples:
+            delete 581
+            delete 763
+        """
+        command = 'SELECT * FROM stat_channels WHERE guild_id = {0} AND id = {1};'
+        async with db.MaybeAcquire() as con:
+            con.execute(command.format(ctx.guild.id, id))
+            entry = con.fetchone()
+        if entry is None:
+            return await ctx.send(embed=ctx.create_embed("That channel doesn't exist!", error=True))
+        page = Prompt('Are you sure you want to stat channel <#{0}>?\n\n*This will not delete the channel'.format(entry['channel_id']))
+        await page.start(ctx)
+        result = page.result
+        if not result:
+            return await ctx.send(embed=ctx.create_embed('Cancelled!'))
+        command = 'DELETE FROM stat_channels WHERE guild_id = {0} AND id = {1};'
+        async with db.MaybeAcquire() as con:
+            con.execute(command.format(ctx.guild.id, id))
+        await ctx.send(embed=ctx.create_embed('Deleted!'))
+
+    @channels.command(name="create")
+    @commands.cooldown(1, 10)
+    async def create(self, ctx: Context, channel: typing.Union[discord.VoiceChannel, discord.TextChannel]):
+        """
+        Opens a setup wizard to create a custom statistic channel.
+
+        Specify the channel you want to turn into a stat channel by name, mention, or ID.
+
+        Examples:
+            create #general
+            create 876862851543251438
+            create general
+        """
+        if channel is None:
+            return await ctx.send(embed=ctx.create_embed('You have to specify a channel to convert!', error=True))
+        command = 'SELECT COUNT(id) FROM stat_channels WHERE guild_id = {0};'.format(ctx.guild.id)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+            entry = con.fetchone()
+        if entry['count'] > 7:
+            return await ctx.send(embed=ctx.create_embed("You have too many stat channels set up!"))
+        descriptions = []
+        for e in ChannelTypes:
+            channel_type = ChannelTypes.to_class(e)
+            if channel_type is not None:
+                descriptions.append('`{0}.` {1}'.format(e.value, channel_type.get_standard_description()))
+        result = await ctx.ask(embed=ctx.create_embed(
+            'What channel type do you want to make? Send the number.\n\n{0}'.format('\n'.join(descriptions)),
+        ))
+        if result is None or result == '':
+            return await ctx.send(embed=ctx.create_embed('Cancelled!'))
+        try:
+            type_num = int(result.split(' ')[0])
+        except ValueError:
+            return await ctx.send(embed=ctx.create_embed('`{0}` is not a number!'.format(result), error=True)),
+        try:
+            converter = ChannelTypes.to_class(ChannelTypes(type_num))
+        except:
+            return await ctx.send(embed=ctx.create_embed(
+                '`{0}` is not a proper channel type!'.format(result), error=True),
+            )
+        await converter.create(ctx, channel)
 
 
 def setup(bot):

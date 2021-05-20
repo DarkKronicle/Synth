@@ -81,7 +81,7 @@ class Messages(commands.Cog):
                 await self.flat_time(g, setting['time'], con)
                 await self.flat_details(g, setting['detail'], con)
         not_in = []
-        command = 'INSERT INTO messages(guild_id) VALUES {0} ON CONFLICT unique_message DO NOTHING;'
+        command = 'INSERT INTO messages(guild_id) VALUES {0} ON CONFLICT ON CONSTRAINT unique_message DO NOTHING;'
         for guild in self.bot.guilds:
             if guild.id not in g_settings:
                 not_in.append(f'({guild.id})')

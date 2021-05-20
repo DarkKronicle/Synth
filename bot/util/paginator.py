@@ -51,3 +51,30 @@ class ImagePaginator(Pages):
         await self.message.delete()
         self.message = None
         await self.start(self.ctx)
+
+
+class Prompt(menus.Menu):
+
+    def __init__(self, starting_text, *, delete_after=True):
+        super().__init__(check_embeds=True, delete_message_after=delete_after)
+        self.starting_text = starting_text
+        self.result = None
+
+    async def send_initial_message(self, ctx, channel):
+        embed = ctx.create_embed(self.starting_text)
+        return await ctx.send(embed=embed)
+
+    async def start(self, ctx, *, channel=None, wait=None):
+        if wait is None:
+            wait = True
+        return await super().start(ctx, channel=channel, wait=wait)
+
+    @menus.button('\N{WHITE HEAVY CHECK MARK}')
+    async def confirm(self, payload):
+        self.result = True
+        self.stop()
+
+    @menus.button('\N{CROSS MARK}')
+    async def do_deny(self, payload):
+        self.result = False
+        self.stop()

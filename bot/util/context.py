@@ -75,7 +75,7 @@ class Context(commands.Context):
             em = '😦'
         await self.message.add_reaction(em)
 
-    def create_embed(self, *, description=discord.Embed.Empty, title=discord.Embed.Empty, error=False):
+    def create_embed(self, description=discord.Embed.Empty, *, title=discord.Embed.Empty, error=False):
         cmd: commands.Command = self.command
         command_name = '{0} => '.format(cmd.cog_name)
         subs = cmd.qualified_name.split(' ')
