@@ -26,11 +26,19 @@ class ChannelTypes(Enum):
 
 class StatChannelsTable(db.Table, table_name='stat_channels'):
     id = db.Column(db.Integer(auto_increment=True), nullable=False)
-    guild_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
-    channel_id = db.Column(db.Integer(big=True), unique=True, nullable=False)
+    guild_id = db.Column(db.Integer(big=True), nullable=False)
+    channel_id = db.Column(db.Integer(big=True), nullable=False)
     type = db.Column(db.Integer(small=True), nullable=False)
     name = db.Column(db.String())
     arguments = db.Column(db.String())
+
+    @classmethod
+    def create_table(cls, *, overwrite=False):
+        statement = super().create_table(overwrite=overwrite)
+        sql = 'ALTER TABLE stat_channels DROP CONSTRAINT IF EXISTS one_channel;' \
+              'ALTER TABLE stat_channels ADD CONSTRAINT one_channel UNIQUE (guild_id, channel_id);'
+
+        return statement + '\n' + sql
 
 
 class StatChannels(commands.Cog):
@@ -158,12 +166,17 @@ class StatChannels(commands.Cog):
         """
         if channel is None:
             return await ctx.send(embed=ctx.create_embed('You have to specify a channel to convert!', error=True))
-        command = 'SELECT COUNT(id) FROM stat_channels WHERE guild_id = {0};'.format(ctx.guild.id)
+        count_command = 'SELECT COUNT(id) FROM stat_channels WHERE guild_id = {0};'.format(ctx.guild.id)
+        already_command = 'SELECT COUNT(id) FROM stat_channels WHERE guild_id = {0} AND channel_id = {1};'
         async with db.MaybeAcquire() as con:
-            con.execute(command)
+            con.execute(already_command.format(ctx.guild.id, channel.id))
+            already = con.fetchone()
+            con.execute(count_command)
             entry = con.fetchone()
+        if already['count'] != 0:
+            return await ctx.send(embed=ctx.create_embed("You can't have multiple stat channels on one channel!", error=True))
         if entry['count'] > 7:
-            return await ctx.send(embed=ctx.create_embed("You have too many stat channels set up!"))
+            return await ctx.send(embed=ctx.create_embed("You have too many stat channels set up!", error=True))
         descriptions = []
         for e in ChannelTypes:
             channel_type = ChannelTypes.to_class(e)
