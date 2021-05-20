@@ -20,6 +20,26 @@ def human(total_seconds):
     return ', '.join(builder)
 
 
+def _leading_zero(string):
+    if len(string) > 1:
+        return string
+    return '0{0}'.format(string)
+
+
+def human_digital(total_seconds):
+    seconds = int(total_seconds % 60)
+    minutes = int((total_seconds // 60) % 60)
+    hours = int(total_seconds // 60 // 60 % 24)
+    days = int(total_seconds // 60 // 60 // 24)
+    builder = []
+    if days > 0:
+        builder.append(str(days))
+    builder.append(_leading_zero(str(hours)))
+    builder.append(_leading_zero(str(minutes)))
+    builder.append(_leading_zero(str(seconds)))
+    return ':'.join(builder)
+
+
 def round_time(time_object=None, round_to=30 * 60):
     """
     Round a datetime object to any time lapse in seconds

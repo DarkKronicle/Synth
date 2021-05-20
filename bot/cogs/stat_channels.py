@@ -18,7 +18,9 @@ class ChannelTypes(Enum):
     @classmethod
     def to_class(cls, number):
         if number == ChannelTypes.messages:
-            return MessagesChannel()
+            return MessageStatChannel()
+        if number == ChannelTypes.voice:
+            return VoiceStatChannel()
         return None
 
 

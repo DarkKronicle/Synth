@@ -1,6 +1,8 @@
-from bot.cogs.channels.messages_channel import MessagesChannel
+from bot.cogs.channels.messages_channel import MessageStatChannel
+from bot.cogs.channels.voice_channel import VoiceStatChannel
 
 
 __all__ = [
-    'MessagesChannel'
+    'MessageStatChannel',
+    'VoiceStatChannel'
 ]

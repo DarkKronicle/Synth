@@ -174,7 +174,7 @@ class Statistics(commands.Cog):
                 entries = con.fetchall()
 
         small, big = self.count_compressed(entries)
-        description = f'Total of `{self.count_all(entries)} messages`\n\n\\*{small} messages lost some data, {big} messages lost most data2.\n\n'
+        description = f'Total of `{self.count_all(entries)} messages`\n\n\\*{small} messages lost some data, {big} messages lost most data.\n\n'
         if not selection.is_member():
             formatted_people = []
             i = 0
@@ -401,7 +401,7 @@ class Statistics(commands.Cog):
         id_to_name = {}
         for e in entries:
             user_id = e['user_id']
-            if user_id is None and e['user_id'] is None:
+            if user_id is None and e['channel_id'] is None:
                 lost += e['amount']
             elif user_id is not None:
                 if user_id not in id_to_name:

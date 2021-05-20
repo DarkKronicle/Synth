@@ -109,7 +109,7 @@ class Voice(commands.Cog):
             self.update_disconnect(member, after, before)
             return
 
-        if after.afk:
+        if after.afk and not isinstance(after.channel, discord.StageChannel):
             return
 
         if before.channel is None:
