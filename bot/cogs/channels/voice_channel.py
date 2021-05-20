@@ -16,10 +16,7 @@ class VoiceStatChannel(StatChannel):
         entries = connection.fetchall()
         i = 0
         for entry in entries:
-            if entry['channel_id'] is None and entry['user_id'] is None:
-                i += entry['amount']
-            elif entry['channel_id'] is not None:
-                i += entry['amount']
+            i += entry['amount'].total_seconds()
         return name.replace('{0}', tutil.human_digital(i))
 
     async def create(self, ctx: Context, channel):
