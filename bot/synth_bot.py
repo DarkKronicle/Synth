@@ -13,7 +13,7 @@ from discord.ext import commands, tasks
 import logging
 
 cogs_dir = 'bot.cogs'
-startup_extensions = ['utility', 'messages', 'statistics', 'voice', 'owner', 'guild_config', 'stat_channels', 'data']
+startup_extensions = ['utility', 'messages', 'statistics', 'voice', 'owner', 'guild_config', 'stat_channels', 'data', 'members']
 description = 'The open source discord statistic bot.'
 
 error_timeout = 15
