@@ -29,7 +29,8 @@ class GuildConfig(commands.Cog):
               !prefix ~
               !prefix {}
         """
-        if prefix is None or 6 >= len(prefix) or len(prefix) < 0:
+        print(prefix)
+        if prefix is None or len(prefix) > 6 or len(prefix) < 1:
             return await ctx.send('You need to specify a prefix of max length 6 and minimum length 1!')
         command = 'INSERT INTO guild_config(guild_id, prefix) VALUES ({0}, %s) ON CONFLICT (guild_id) DO UPDATE SET prefix = EXCLUDED.prefix;'  # noqa: WPS323
         command = command.format(str(ctx.guild.id))

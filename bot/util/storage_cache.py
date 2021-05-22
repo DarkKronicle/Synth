@@ -94,7 +94,7 @@ def cache(maxsize=64):  # noqa: C901,WPS212,WPS231
             return stored_value
 
         def _invalidate(*args, **kwargs):
-            key = create_key(args, kwargs)
+            key = create_key(func, args, kwargs)
             if key in internal_cache:
                 # No other function to replicate del
                 del internal_cache[key]  # noqa: WPS420,WPS529
