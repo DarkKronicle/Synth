@@ -7,10 +7,10 @@ class Members(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.to_update = []
-        self.bot.add_loop('members', )
+        self.bot.add_loop('members', self.update_loop)
 
     def cog_unload(self):
-        self.bot.remove_loop('members', self.update_loop)
+        self.bot.remove_loop('members')
 
     async def update_loop(self, time):
         if time.minute == 0:
