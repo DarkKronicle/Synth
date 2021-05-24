@@ -15,6 +15,7 @@ import logging
 cogs_dir = 'bot.cogs'
 startup_extensions = ['utility', 'messages', 'statistics', 'voice', 'owner', 'guild_config', 'stat_channels', 'data', 'members']
 description = 'The open source discord statistic bot.'
+main_color = discord.Colour(0x9d0df0)
 
 error_timeout = 15
 settings_cache = 640
@@ -52,7 +53,6 @@ class SynthBot(commands.Bot):
 
     def __init__(self):
         logging.info('Loading bot...')
-
         self.loops = {}
         allowed_mentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
 

@@ -29,14 +29,13 @@ class GuildConfig(commands.Cog):
               !prefix ~
               !prefix {}
         """
-        print(prefix)
         if prefix is None or len(prefix) > 6 or len(prefix) < 1:
             return await ctx.send('You need to specify a prefix of max length 6 and minimum length 1!')
         command = 'INSERT INTO guild_config(guild_id, prefix) VALUES ({0}, %s) ON CONFLICT (guild_id) DO UPDATE SET prefix = EXCLUDED.prefix;'  # noqa: WPS323
         command = command.format(str(ctx.guild.id))
         async with db.MaybeAcquire() as con:
             con.execute(command, (prefix,))
-        self.bot.get_guild_prefix.invalidate(ctx.guild.id)
+        self.bot.get_guild_prefix.invalidate(self.bot, ctx.guild.id)
         await ctx.send(embed=ctx.create_embed(description='Updated prefix to `{0}`'.format(prefix)))
 
     @commands.command(name='*flat', hidden=True)

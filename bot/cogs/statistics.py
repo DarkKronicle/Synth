@@ -1,14 +1,13 @@
 import re
 import typing
 from collections import Counter
-from datetime import datetime, timedelta
-from io import BytesIO
+from datetime import datetime
 
-import bot.util.database as db
-import bot.util.time_util as tutil
+from bot.util import database as db
+from bot.util import time_util as tutil
+from bot.util import graphs
 import discord
-import matplotlib.dates as md
-import matplotlib.pyplot as plt
+
 from bot.util.context import Context
 from bot.util.paginator import ImagePaginator
 from discord.ext import commands
@@ -156,11 +155,11 @@ class Statistics(commands.Cog):
             con.execute(command)
             entries = con.fetchall()
         embed = await self.get_message_embed(ctx, selection, entries=entries, interval=interval)
-        images = [await self.plot_24_hour_messages(entries=entries)]
+        images = [graphs.plot_24_hour_messages(entries=entries)]
         if not selection.is_channel():
-            images.append(await self.plot_message_channel_pie(ctx, entries))
+            images.append(graphs.plot_message_channel_pie(ctx, entries))
         if not selection.is_member():
-            images.append(await self.plot_message_user_pie(ctx, entries))
+            images.append(graphs.plot_message_user_pie(ctx, entries))
         embed.set_image(url='attachment://graph.png')
         menu = ImagePaginator(embed, images)
         await menu.start(ctx)
@@ -296,203 +295,6 @@ class Statistics(commands.Cog):
             elif e['channel_id'] is None or e['user_id'] is None:
                 small += e['amount']
         return small, big
-
-    async def plot_24_hour_messages(self, entries):
-
-        # Amount of messages per time
-        data = Counter()
-        min_date = datetime.now()
-        max_date = datetime.now() - timedelta(hours=1)
-        for e in entries:
-            min_date = min(min_date, e['time'])
-            max_date = max(max_date, e['time'])
-            data[e['time']] += e['amount']
-        if (max_date - min_date).days > 0:
-            keys = [k for k in data.keys()]
-            for k in keys:
-                data[k.replace(year=2020, month=1, day=1)] = data.pop(k)
-            min_date = datetime(year=2020, month=1, day=1, minute=0, hour=0, second=0, microsecond=0)
-            data[min_date] = 0
-            max_date = datetime(year=2020, month=1, day=2, minute=0, hour=0, second=0, microsecond=0)
-            data[max_date] = 0
-        else:
-            max_date = tutil.get_utc() + timedelta(minutes=30)
-            min_date = max_date - timedelta(days=1, minutes=30)
-            data[max_date] = 0
-            data[min_date] = 0
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots(ncols=1, nrows=1)
-        ax.xaxis.set_major_locator(md.HourLocator(interval=2))
-        ax.xaxis.set_minor_locator(md.HourLocator(interval=1))
-        date_fm = md.DateFormatter('%H:%M')
-        ax.xaxis.set_major_formatter(date_fm)
-        ax.yaxis.grid(color='white', alpha=0.2)
-
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-
-        ax.set_xlabel('Time (UTC)')
-        ax.set_ylabel('Messages')
-        _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
-                   color=str(self.main_color))
-        fig.autofmt_xdate()
-
-        plt.xlim([min_date, max_date])
-
-        buffer = BytesIO()
-        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
-        buffer.seek(0)
-        fig.clear()
-        plt.close(fig)
-        return buffer
-
-    async def plot_daily_message(self, entries):
-        messages = Counter()
-        for e in entries:
-            if e['channel_id'] is None and e['user_id']:
-                messages += e['amount']
-            elif e['channel_id'] is None:
-                messages += e['amount']
-
-    async def plot_message_channel_pie(self, ctx, entries):
-        lost = 0
-        channels = Counter()
-        id_to_name = {}
-        for e in entries:
-            channel_id = e['channel_id']
-            if channel_id is None and e['user_id'] is None:
-                lost += e['amount']
-            elif channel_id is not None:
-                if channel_id not in id_to_name:
-                    channel = ctx.guild.get_channel(channel_id)
-                    if channel is not None:
-                        id_to_name[channel_id] = channel.name
-                    else:
-                        id_to_name[channel_id] = str(channel_id)
-                channels[id_to_name[channel_id]] += e['amount']
-        name = []
-        amount = []
-        for c, a in channels.items():
-            name.append(c)
-            amount.append(a)
-        if lost > 0:
-            labels = ['Lost', *name]
-            sizes = [lost, *amount]
-        else:
-            labels = name
-            sizes = amount
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots()
-        _, _, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-        for text in autotexts:
-            text.set_color('black')
-        ax.axis('equal')
-        buffer = BytesIO()
-        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
-        buffer.seek(0)
-        fig.clear()
-        plt.close(fig)
-        return buffer
-
-    async def plot_message_user_pie(self, ctx, entries):
-        lost = 0
-        users = Counter()
-        id_to_name = {}
-        for e in entries:
-            user_id = e['user_id']
-            if user_id is None and e['channel_id'] is None:
-                lost += e['amount']
-            elif user_id is not None:
-                if user_id not in id_to_name:
-                    user = ctx.guild.get_member(user_id)
-                    if user is not None:
-                        id_to_name[user_id] = user.name
-                    else:
-                        id_to_name[user_id] = str(user_id)
-                users[id_to_name[user_id]] += e['amount']
-        name = []
-        amount = []
-        for c, a in users.items():
-            name.append(c)
-            amount.append(a)
-        if lost > 0:
-            labels = ['Lost', *name]
-            sizes = [lost, *amount]
-        else:
-            labels = name
-            sizes = amount
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots()
-        _, _, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-        for text in autotexts:
-            text.set_color('black')
-        ax.axis('equal')
-        buffer = BytesIO()
-        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
-        buffer.seek(0)
-        fig.clear()
-        plt.close(fig)
-        return buffer
-
-    async def plot_24_hour_voice(self, entries):
-        data = Counter()
-        logged = {}
-        min_date = datetime.now()
-        max_date = datetime.now() - timedelta(hours=1)
-        data[datetime.now()] = 0
-        data[datetime.now() - timedelta(days=1)] = 0
-        for e in entries:
-            time = tutil.round_time(e['time'], 60 * 30)
-            added = 0
-            min_date = min(min_date, e['time'])
-            while added < e['amount'].total_seconds():
-                max_date = max(max_date, time)
-                if time not in logged:
-                    logged[time] = []
-                if e['user_id'] not in logged[time]:
-                    data[time] += 1
-                    logged[time].append(e['user_id'])
-                time = time + timedelta(minutes=30)
-                added += 60 * 30
-        if (max_date - min_date).days > 0:
-            keys = [k for k in data.keys()]
-            for k in keys:
-                data[k.replace(year=2020, month=1, day=1)] = data.pop(k)
-            min_date = datetime(year=2020, month=1, day=1, minute=0, hour=0, second=0, microsecond=0)
-            data[min_date] = 0
-            max_date = datetime(year=2020, month=1, day=2, minute=0, hour=0, second=0, microsecond=0)
-            data[max_date] = 0
-        else:
-            max_date = tutil.get_utc() + timedelta(minutes=30)
-            min_date = max_date - timedelta(days=1, minutes=30)
-            data[max_date] = 0
-            data[min_date] = 0
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots(ncols=1, nrows=1)
-        ax.xaxis.set_major_locator(md.HourLocator(interval=2))
-        ax.xaxis.set_minor_locator(md.HourLocator(interval=1))
-        date_fm = md.DateFormatter('%H:%M')
-        ax.xaxis.set_major_formatter(date_fm)
-        ax.yaxis.grid(color='white', alpha=0.2)
-
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-
-        ax.set_xlabel('Time (UTC)')
-        ax.set_ylabel('Amount in Voice Channel')
-        _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
-                   color=str(self.main_color))
-        fig.autofmt_xdate()
-
-        plt.xlim([min_date, max_date])
-        buffer = BytesIO()
-        fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
-        buffer.seek(0)
-        fig.clear()
-        plt.close(fig)
-        return buffer
 
 
 def setup(bot):
