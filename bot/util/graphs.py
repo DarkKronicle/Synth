@@ -52,12 +52,16 @@ def plot_24_hour_messages(entries):
     sns.set_theme(style="ticks", context="paper")
     plt.style.use("dark_background")
     plt.figure()
-    ax = sns.swarmplot(x=y, color=".2")
-    ax = sns.violinplot(x=y, inner='points')
+    ax = sns.swarmplot(x=y, color='.2', alpha=0.9)
+    ax = sns.violinplot(x=y, inner=None, palette='Blues')
     ax.set_xlim(min_date.total_seconds(), max_date.total_seconds())
     ax.set_xticks([3600 * i for i in range(24)])
     ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
     ax.tick_params(axis="x", rotation=45)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
 
     buffer = BytesIO()
     plt.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
@@ -157,7 +161,7 @@ def plot_message_user_pie(ctx, entries):
     return buffer
 
 
-def plot_24_hour_voice(self, entries):
+def plot_24_hour_voice(entries):
     data = Counter()
     logged = {}
     min_date = datetime.now()
@@ -204,8 +208,8 @@ def plot_24_hour_voice(self, entries):
 
     ax.set_xlabel('Time (UTC)')
     ax.set_ylabel('Amount in Voice Channel')
-    _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(self.main_color),
-               color=str(self.main_color))
+    _ = ax.bar(data.keys(), data.values(), width=1 / 48, alpha=1, align='edge', edgecolor=str(main_color),
+               color=str(main_color))
     fig.autofmt_xdate()
 
     plt.xlim([min_date, max_date])
