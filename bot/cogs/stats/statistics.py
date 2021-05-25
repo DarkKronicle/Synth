@@ -157,9 +157,9 @@ class Statistics(commands.Cog):
         embed = await self.get_message_embed(ctx, selection, entries=entries, interval=interval)
         images = [graphs.plot_24_hour_messages(entries=entries)]
         if not selection.is_channel():
-            images.append(graphs.plot_message_channel_pie(ctx, entries))
+            images.append(graphs.plot_message_channel_bar(ctx, entries))
         if not selection.is_member():
-            images.append(graphs.plot_message_user_pie(ctx, entries))
+            images.append(graphs.plot_message_user_bar(ctx, entries))
         embed.set_image(url='attachment://graph.png')
         menu = ImagePaginator(embed, images)
         await menu.start(ctx)

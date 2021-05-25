@@ -5,7 +5,7 @@ import discord
 from bot.util import database as db, checks
 from discord.ext import commands
 from enum import Enum
-from bot.cogs.channels import *
+from bot.cogs.stats.channels import *
 from bot.util.context import Context
 from bot.util.paginator import Prompt
 

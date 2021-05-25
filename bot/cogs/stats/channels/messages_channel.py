@@ -1,4 +1,4 @@
-from bot.cogs.channels.channel_base import StatChannel
+from bot.cogs.stats.channels.channel_base import StatChannel
 from bot.util.context import Context
 from bot.util import database as db
 

@@ -13,7 +13,11 @@ from discord.ext import commands, tasks
 import logging
 
 cogs_dir = 'bot.cogs'
-startup_extensions = ['utility', 'messages', 'statistics', 'voice', 'owner', 'guild_config', 'stat_channels', 'data', 'members']
+startup_extensions = [
+    'utility', 'stats.messages', 'stats.statistics', 'stats.voice',
+    'owner', 'guild_config', 'stats.stat_channels', 'data',
+    'stats.members',
+]
 description = 'The open source discord statistic bot.'
 main_color = discord.Colour(0x9d0df0)
 

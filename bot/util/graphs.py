@@ -8,7 +8,7 @@ from bot.util import time_util as tutil
 from bot.synth_bot import main_color
 
 
-def lock_24_hours(entries):
+def lock_24_hours(entries, *, time = False):
     data = Counter()
     min_date = datetime.now()
     max_date = datetime.now() - timedelta(hours=1)
@@ -19,7 +19,10 @@ def lock_24_hours(entries):
             continue
         min_date = min(min_date, e['time'])
         max_date = max(max_date, e['time'])
-        data[e['time']] += e['amount']
+        if time:
+            data[e['time']] += e['amount'].total_seconds()
+        else:
+            data[e['time']] += e['amount']
     if (max_date - min_date).days > 0:
         days = True
         keys = [k for k in data.keys()]
@@ -79,7 +82,7 @@ def plot_daily_message(entries):
             messages += e['amount']
 
 
-def plot_message_channel_pie(ctx, entries):
+def plot_message_channel_bar(ctx, entries):
     lost = 0
     channels = Counter()
     id_to_name = {}
@@ -95,32 +98,37 @@ def plot_message_channel_pie(ctx, entries):
                 else:
                     id_to_name[channel_id] = str(channel_id)
             channels[id_to_name[channel_id]] += e['amount']
+    return plot_bar(channels)
+
+
+def plot_bar(values):
     name = []
     amount = []
-    for c, a in channels.items():
+    i = 0
+    other = 0
+    for c, a in sorted(values.items(), key=lambda item: item[1], reverse=True):
+        if i >= 9:
+            other += a
+            continue
         name.append(c)
         amount.append(a)
-    if lost > 0:
-        labels = ['Lost', *name]
-        sizes = [lost, *amount]
-    else:
-        labels = name
-        sizes = amount
+        i += 1
+
+    labels = name
+    sizes = amount
     plt.style.use('dark_background')
-    fig, ax = plt.subplots()
-    _, _, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-    for text in autotexts:
-        text.set_color('black')
-    ax.axis('equal')
+    sns.set_theme(style="ticks", context="talk")
+    plt.style.use("dark_background")
+    plt.figure()
+    ax = sns.barplot(x=sizes, y=labels)
     buffer = BytesIO()
-    fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
+    plt.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
     buffer.seek(0)
-    fig.clear()
-    plt.close(fig)
+    plt.clf()
     return buffer
 
 
-def plot_message_user_pie(ctx, entries):
+def plot_message_user_bar(ctx, entries):
     lost = 0
     users = Counter()
     id_to_name = {}
@@ -136,29 +144,7 @@ def plot_message_user_pie(ctx, entries):
                 else:
                     id_to_name[user_id] = str(user_id)
             users[id_to_name[user_id]] += e['amount']
-    name = []
-    amount = []
-    for c, a in users.items():
-        name.append(c)
-        amount.append(a)
-    if lost > 0:
-        labels = ['Lost', *name]
-        sizes = [lost, *amount]
-    else:
-        labels = name
-        sizes = amount
-    plt.style.use('dark_background')
-    fig, ax = plt.subplots()
-    _, _, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-    for text in autotexts:
-        text.set_color('black')
-    ax.axis('equal')
-    buffer = BytesIO()
-    fig.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
-    buffer.seek(0)
-    fig.clear()
-    plt.close(fig)
-    return buffer
+    return plot_bar(users)
 
 
 def plot_24_hour_voice(entries):
