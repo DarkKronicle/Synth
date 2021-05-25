@@ -70,6 +70,7 @@ def plot_24_hour_messages(entries):
     buffer = BytesIO()
     plt.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
     plt.clf()
+    plt.close()
     buffer.seek(0)
     return buffer
 
@@ -123,6 +124,7 @@ def plot_week_messages(entries):
     buffer = BytesIO()
     plt.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
     plt.clf()
+    plt.close()
     buffer.seek(0)
     return buffer
 
@@ -184,6 +186,8 @@ def plot_bar(values):
     plt.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
     buffer.seek(0)
     plt.clf()
+    plt.close()
+
     return buffer
 
 
