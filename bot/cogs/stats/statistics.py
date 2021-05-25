@@ -161,6 +161,9 @@ class Statistics(commands.Cog):
             ))
         embed = await self.get_message_embed(ctx, selection, entries=entries, interval=interval)
         images = [graphs.plot_24_hour_messages(entries=entries)]
+        week = graphs.plot_week_messages(entries=entries)
+        if week is not None:
+            images.append(week)
         if not selection.is_channel():
             images.append(graphs.plot_message_channel_bar(ctx, entries))
         if not selection.is_member():

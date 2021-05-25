@@ -155,7 +155,7 @@ class HelpCommand(commands.HelpCommand):
                 else:
                     parents_formatted.append(parent.name)
                 parent = parent.parent
-            fmt = '|'.join(parents_formatted) + aliases
+            fmt = '{0} '.format('|'.join(parents_formatted)) + aliases
         if command.signature:
             return '{0} {1}'.format(fmt, command.signature)
         return fmt
@@ -180,7 +180,7 @@ class HelpCommand(commands.HelpCommand):
             split = command.qualified_name.split(' ')
             if len(split) > 1:
                 example = ' '.join(split[:-1]) + example
-            help_text += '\n{0} {1}'.format(self.clean_prefix, example)
+            help_text += '\n{0}{1}'.format(self.clean_prefix, example)
         return '{0}\n```'.format(help_text)
 
     def get_detailed_command(self, command: commands.Command):

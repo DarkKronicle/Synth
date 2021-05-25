@@ -6,9 +6,10 @@ from datetime import datetime, timedelta, date
 from collections import Counter
 from bot.util import time_util as tutil
 from bot.synth_bot import main_color
+import pandas as pd
 
 
-def lock_24_hours(entries, *, time = False):
+def lock_24_hours(entries, *, time=False):
     data = Counter()
     min_date = datetime.now()
     max_date = datetime.now() - timedelta(hours=1)
@@ -61,6 +62,60 @@ def plot_24_hour_messages(entries):
     ax.set_xticks([3600 * i for i in range(24)])
     ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
     ax.tick_params(axis="x", rotation=45)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
+    plt.clf()
+    buffer.seek(0)
+    return buffer
+
+
+def plot_week_messages(entries):
+    # Amount of messages per time
+    min_date = datetime.now()
+    max_date = datetime.now() - timedelta(hours=1)
+    now = datetime.now().date()
+    data = []
+    order_data = {}
+    for e in entries:
+        if e['channel_id'] is None and e['user_id'] is None:
+            continue
+        elif e['channel_id'] is None and e['user_id'] is not None:
+            continue
+        days = (now - e['time'].date()).days
+        if days > 7:
+            continue
+        min_date = min(min_date, e['time'])
+        max_date = max(max_date, e['time'])
+        order_data[days] = e['time'].strftime('%A')
+        for i in range(e['amount']):
+            data.append((
+                e['time'].strftime('%A'),
+                (datetime.combine(date.min, e['time'].time()) - datetime.min).total_seconds(),
+            ))
+    order = [v for i, v in sorted(order_data.items(), key=lambda item: item[0], reverse=True)]
+    df = pd.DataFrame(data, columns=['Days', 'Amount'])
+
+    diff = (max_date - min_date).days
+    if diff < 2:
+        return None
+
+    min_date = timedelta(days=0)
+    max_date = timedelta(days=1)
+
+    sns.set_theme(style="ticks", context="paper")
+    plt.style.use("dark_background")
+    plt.figure()
+    ax = sns.swarmplot(y='Days', x='Amount', data=df, color='1', alpha=0.9, order=order)
+    ax = sns.violinplot(y='Days', x='Amount', data=df, inner=None, palette='Blues', order=order)
+    ax.set_xlim(min_date.total_seconds(), max_date.total_seconds())
+    ax.set_xticks([3600 * i for i in range(24)])
+    ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
+    ax.tick_params(axis='x', rotation=45)
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
