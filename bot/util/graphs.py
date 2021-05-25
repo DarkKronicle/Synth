@@ -110,7 +110,7 @@ def plot_week_messages(entries):
     sns.set_theme(style="ticks", context="paper")
     plt.style.use("dark_background")
     plt.figure()
-    ax = sns.violinplot(y='Days', x='Amount', data=df, inner='box', palette='Blues', order=order)
+    ax = sns.violinplot(y='Days', x='Amount', data=df, inner='quart', palette='Blues', order=order)
     ax.set_xlim(min_date.total_seconds(), max_date.total_seconds())
     ax.set_xticks([3600 * i for i in range(24)])
     ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
