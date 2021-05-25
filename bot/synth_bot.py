@@ -80,6 +80,7 @@ class SynthBot(commands.Bot):
             except (discord.ClientException, ModuleNotFoundError):
                 logging.warning('Failed to load extension {0}.'.format(extension))
                 traceback.print_exc()
+        self.add_loop("presence", self.presence_loop)
 
     def run(self):
         super().run(bot.config['bot_token'], reconnect=True)
@@ -122,6 +123,7 @@ class SynthBot(commands.Bot):
 
     async def on_ready(self):
         self.setup_loop.start()
+        await self.update_presence()
         logging.info('Bot up and running!')
 
     async def process_commands(self, message):
@@ -182,3 +184,19 @@ class SynthBot(commands.Bot):
     @discord.utils.cached_property
     def log(self):
         return self.get_channel(bot.config['log_channel'])
+
+    async def presence_loop(self, time):
+        if time.minute == 0:
+            await self.update_presence()
+
+    async def update_presence(self):
+        command = "SELECT SUM(amount) FROM messages WHERE time >= NOW() at time zone 'utc' - INTERVAL '24 HOURS';"
+        amount = 0
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+            entry = con.fetchone()
+        if entry['sum'] is None:
+            amount = 0
+        else:
+            amount = entry['sum']
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="{0} messages".format(amount)))

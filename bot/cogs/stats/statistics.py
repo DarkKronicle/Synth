@@ -154,6 +154,11 @@ class Statistics(commands.Cog):
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
+        if len(entries) == 0:
+            return await ctx.send(embed=ctx.create_embed(
+                "Looks like there's no entries for that selection! You may have to wait 5-15 minutes for the database to update.",
+                error=True
+            ))
         embed = await self.get_message_embed(ctx, selection, entries=entries, interval=interval)
         images = [graphs.plot_24_hour_messages(entries=entries)]
         if not selection.is_channel():

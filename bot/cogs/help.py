@@ -49,7 +49,7 @@ class BotHelpPageSource(menus.ListPageSource):
     async def format_page(self, menu, cogs):
         top = """
             `help [command/category]` for more specific help.'
-            [Invite Me](https://youtube.com/)
+            [Invite Me](https://discord.com/api/oauth2/authorize?client_id=840674265933152306&permissions=471198800&scope=bot)
             - [Support Server](https://discord.gg/WnaE3uZxDA) - [GitHub](https://github.com/DarkKronicle/Synth/)
         """
         top = top.replace('    ', '')
@@ -124,6 +124,7 @@ class HelpCommand(commands.HelpCommand):
     def __init__(self):
         super().__init__(command_attrs={
             'help': 'Shows command information',
+            'cooldown': commands.Cooldown(2, 10, commands.BucketType.user)
         })
 
     async def send_bot_help(self, mapping):
@@ -179,7 +180,7 @@ class HelpCommand(commands.HelpCommand):
             split = command.qualified_name.split(' ')
             if len(split) > 1:
                 example = ' '.join(split[:-1]) + example
-            help_text += '\n{0}{1}'.format(self.clean_prefix, example)
+            help_text += '\n{0} {1}'.format(self.clean_prefix, example)
         return '{0}\n```'.format(help_text)
 
     def get_detailed_command(self, command: commands.Command):

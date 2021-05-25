@@ -33,7 +33,7 @@ class Owner(commands.Cog):
             elif isinstance(channel, discord.VoiceChannel):
                 voice = voice + 1
         message = 'Text Channels: `{text}`\nVoice Channels: `{voice}`\nTotal Channels: `{all}`\n\nMembers: `{members}`\nBots: `{bots}`'
-        message.format(
+        message = message.format(
             text=text,
             voice=voice,
             all=text + voice,
