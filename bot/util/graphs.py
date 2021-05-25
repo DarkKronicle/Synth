@@ -113,6 +113,9 @@ def plot_bar(values):
         name.append(c)
         amount.append(a)
         i += 1
+    if other > 0:
+        name.append('Other...')
+        amount.append(other)
 
     labels = name
     sizes = amount
