@@ -56,7 +56,7 @@ def plot_24_hour_messages(entries):
     sns.set_theme(style="ticks", context="paper")
     plt.style.use("dark_background")
     plt.figure()
-    ax = sns.swarmplot(x=y, color='.2', alpha=0.9, size=3)
+    ax = sns.stripplot(x=y, color='.2', alpha=0.9, size=3)
     ax = sns.violinplot(x=y, inner=None, palette='Blues')
     ax.set_xlim(min_date.total_seconds() // (60 * 60), max_date.total_seconds() // (60 * 60))
     ax.set_xticks([i for i in range(24)])
