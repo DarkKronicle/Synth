@@ -50,17 +50,17 @@ def plot_24_hour_messages(entries):
     data, min_date, max_date, days = lock_24_hours(entries)
     y = []
     for d, amount in data.items():
-        y.extend([d.total_seconds()] * amount)
+        y.extend([d.total_seconds() // (60 * 60)] * amount)
     if days:
         y.sort()
     sns.set_theme(style="ticks", context="paper")
     plt.style.use("dark_background")
     plt.figure()
-    ax = sns.swarmplot(x=y, color='.2', alpha=0.9)
+    ax = sns.swarmplot(x=y, color='.2', alpha=0.9, size=3)
     ax = sns.violinplot(x=y, inner=None, palette='Blues')
-    ax.set_xlim(min_date.total_seconds(), max_date.total_seconds())
-    ax.set_xticks([7200 * i for i in range(6)])
-    ax.set_xticklabels(['{0}:00'.format(i * 4) for i in range(6)])
+    ax.set_xlim(min_date.total_seconds() // (60 * 60), max_date.total_seconds() // (60 * 60))
+    ax.set_xticks([i for i in range(24)])
+    ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
     ax.tick_params(axis="x", rotation=45)
 
     ax.spines['top'].set_visible(False)
