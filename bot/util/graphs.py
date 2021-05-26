@@ -59,8 +59,8 @@ def plot_24_hour_messages(entries):
     ax = sns.swarmplot(x=y, color='.2', alpha=0.9)
     ax = sns.violinplot(x=y, inner=None, palette='Blues')
     ax.set_xlim(min_date.total_seconds(), max_date.total_seconds())
-    ax.set_xticks([3600 * i for i in range(24)])
-    ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
+    ax.set_xticks([7200 * i for i in range(6)])
+    ax.set_xticklabels(['{0}:00'.format(i * 4) for i in range(6)])
     ax.tick_params(axis="x", rotation=45)
 
     ax.spines['top'].set_visible(False)
