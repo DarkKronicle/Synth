@@ -100,3 +100,33 @@ class Prompt(menus.Menu):
     async def do_deny(self, payload):
         self.result = False
         self.stop()
+
+
+class SimplePageSource(menus.ListPageSource):
+
+    def __init__(self, entries, *, per_page=15):
+        super().__init__(entries, per_page=per_page)
+
+    async def format_page(self, menu, entries):
+        pages = []
+        if self.per_page > 1:
+            for index, entry in enumerate(entries, start=menu.current_page * self.per_page):
+                pages.append(f"**{index + 1}.** {entry}")
+        else:
+            pages.append(f"**{menu.current_page + 1}.** {entries}")
+
+        maximum = self.get_max_pages()
+        if maximum > 1:
+            footer = f"Page {menu.current_page + 1}/{maximum} ({len(self.entries)} entries.)"
+            menu.embed.set_footer(text=footer)
+
+        menu.embed.description = '\n'.join(pages)
+        return menu.embed
+
+
+class SimplePages(Pages):
+
+    def __init__(self, entries, *, per_page=10, embed=discord.Embed(colour=discord.Colour.purple())):
+        super().__init__(SimplePageSource(entries, per_page=per_page))
+        self.embed = embed
+        self.entries = entries

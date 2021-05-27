@@ -63,6 +63,7 @@ class SynthBot(commands.Bot):
         intents = discord.Intents.default()
         intents.members = True
         intents.guilds = True
+        intents.reactions = True
         super().__init__(
             command_prefix=get_prefix,
             intents=intents,
