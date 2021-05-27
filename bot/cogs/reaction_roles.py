@@ -218,7 +218,7 @@ class ReactionRoles(commands.Cog):
             con.execute(select)
             message_entry = con.fetchone()
             insert = insert.format(message_entry['reaction_role_id'], role_id)
-            con.execute(insert, (reaction,))
+            con.execute(insert, (str(reaction),))
         self.get_reaction_roles.invalidate(self, guild_id, message_id)
 
     @cache.cache()
