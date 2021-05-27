@@ -63,9 +63,11 @@ def plot_24_hour_messages(entries):
     ax = sns.swarmplot(x=strip, color='.2', alpha=0.9, size=3)
     ax = sns.violinplot(x=y, inner=None, palette='Blues')
     ax.set_xlim(min_date.total_seconds() // (60 * 60), max_date.total_seconds() // (60 * 60))
+    utc = tutil.get_utc()
     ax.set_xticks([i for i in range(24)])
     ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
     ax.tick_params(axis="x", rotation=45)
+    ax.text(utc.hour + (utc.minute / 60), 0.47, 'Now')
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -117,8 +119,9 @@ def plot_week_messages(entries):
     plt.figure()
     ax = sns.violinplot(y='Days', x='Amount', data=df, inner='stick', palette='Blues', order=order, scale_hue=False, scale='count')
     ax.set_xlim(min_date.total_seconds(), max_date.total_seconds())
-    ax.set_xticks([3600 * i for i in range(24)])
-    ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)])
+    now = tutil.get_utc()
+    ax.set_xticks([3600 * i for i in range(24)] + [now.hour / 60])
+    ax.set_xticklabels(['{0}:00'.format(i) for i in range(24)] + ['Now'])
     ax.tick_params(axis='x', rotation=45)
 
     ax.spines['top'].set_visible(False)

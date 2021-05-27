@@ -17,14 +17,14 @@ class ReactionMessagesTable(db.Table, table_name='reaction_messages'):
     @classmethod
     def create_table(cls, *, overwrite=False):
         statement = super().create_table(overwrite=overwrite)
-        sql = "CREATE UNIQUE INDEX IF NOT EXISTS reaction_roles_uniq_idx ON reaction_roles (guild_id, message_id);"
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS reaction_messages_uniq_idx ON reaction_messages (guild_id, message_id);"
         return statement + '\n' + sql
 
 
-class ReactionRolesTable(db.Table, table_name='reaction_roles'):
-    reaction_role_id = db.Column(db.ForeignKey('reaction_messages', 'reaction_role_id'), index=True, nullable=False)
-    role_id = db.Column(db.Integer(big=True), nullable=False)
-    reaction = db.Column(db.String(), nullable=False)
+# class ReactionRolesTable(db.Table, table_name='reaction_roles'):
+#     reaction_role_id = db.Column(db.ForeignKey('reaction_messages', 'reaction_role_id'), index=True, nullable=False)
+#     role_id = db.Column(db.Integer(big=True), nullable=False)
+#     reaction = db.Column(db.String(), nullable=False)
 
 
 class ReactionType(enum.Enum):
