@@ -134,3 +134,32 @@ class Context(commands.Context):
                 await message.delete()
 
         return answer
+
+    async def reaction(self, message=None, *, embed=None, author_id=None, timeout=60, delete_after=True):
+        emoji = None
+        if message is None and embed is None:
+            raise ValueError("Message and embed can't be NoneType!")
+
+        message = await self.send(content=message, embed=embed)
+
+        if author_id is None:
+            author_id = self.author.id
+
+        def check(reaction, user):
+            nonlocal emoji
+            if user.id != author_id or reaction.message.channel != message.channel:
+                return False
+
+            emoji = reaction.emoji
+            return True
+
+        try:
+            await self.bot.wait_for('reaction_add', timeout=timeout, check=check)
+        except asyncio.TimeoutError:
+            emoji = None
+
+        if delete_after:
+            with contextlib.suppress(discord.HTTPException):
+                await message.delete()
+
+        return emoji

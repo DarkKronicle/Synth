@@ -2,6 +2,8 @@ import typing
 from datetime import datetime
 
 import discord
+
+from bot.util import paginator
 from bot.util.context import Context
 from dateutil.tz import gettz
 from discord.ext import commands
@@ -80,6 +82,60 @@ class Utility(commands.Cog):
         description = 'Created: `{0.created_at}`'.format(user)
         embed.description = description
         await ctx.send(embed=embed)
+
+    @commands.command(name='poll')
+    async def poll(self, ctx: Context, *, channel: typing.Optional[discord.TextChannel]):
+        """Creates a setup wizard for polls."""
+        if channel is not None:
+            if not channel.permissions_for(ctx.author).send_messages:
+                return await ctx.send(
+                    embed=ctx.create_embed(
+                        "You aren't allowed to send messages in <#{0allowed to send messages in <#{0}>".format(channel.id),
+                        error=True,
+                    ),
+                )
+        if channel is None:
+            channel = ctx.channel
+        title = await ctx.ask(embed=ctx.create_embed('What will the title for the poll be?'))
+        if not title:
+            return await ctx.send(embed=ctx.create_embed('Timed out!', error=True))
+        description = await ctx.ask(embed=ctx.create_embed('What will the description for the poll be?'))
+        if not description:
+            return await ctx.send(embed=ctx.create_embed('Timed out!', error=True))
+        options = []
+        i = 0
+        while True:
+            i += 1
+            emoji = await ctx.reaction(embed=ctx.create_embed('What emoji will this option have?\n\nReact with it!', title='Option {0}'.format(i)))
+            if not emoji:
+                return await ctx.send(embed=ctx.create_embed('Timed out!', error=True))
+            question = await ctx.ask(embed=ctx.create_embed('What will the option be?', title='Option {0}'.format(i)))
+            if not description:
+                return await ctx.send(embed=ctx.create_embed('Timed out!', error=True))
+            options.append((emoji, question))
+            if i > 7:
+                break
+            prompt = paginator.Prompt('Add another option?')
+            try:
+                await prompt.start(ctx)
+            except:
+                return await ctx.send(embed=ctx.create_embed('An error occured in the menu!', error=True))
+            if not prompt.result:
+                break
+        max_len = 1800
+        length = 0
+        elements = []
+        for emoji, question in options:
+            val = '{0} - {1}'.format(str(emoji), question)
+            length += len(val)
+            if length > max_len:
+                break
+            elements.append(val)
+        embed = await channel.send(
+            embed=ctx.create_embed(title=title, description='{0}\n\n{1}'.format(description, '\n'.join(elements)))
+        )
+        for emoji, _ in options:
+            await embed.add_reaction(emoji)
 
 
 def setup(bot):
