@@ -144,7 +144,7 @@ def plot_daily_message(entries):
         days = -1 * (now - e['time'].date()).days
         if e['channel_id'] is None and e['user_id'] is None:
             messages[days] += e['amount']
-        elif e['user_id'] is None and e['channel_id'] is not None:
+        elif e['user_id'] is not None:
             messages[days] += e['amount']
         else:
             continue
@@ -161,6 +161,7 @@ def plot_daily_message(entries):
     plt.figure()
     ax = sns.lineplot(x=x, y=y)
     ax.set_xlim(max_days * -1, 0)
+    ax.set_xticks([i - max_days for i in range(max_days)])
     ax.tick_params(axis='x', rotation=45)
 
     ax.spines['top'].set_visible(False)
