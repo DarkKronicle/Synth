@@ -138,11 +138,39 @@ def plot_week_messages(entries):
 
 def plot_daily_message(entries):
     messages = Counter()
+    now = tutil.get_utc().date()
+    max_days = 0
     for e in entries:
+        days = -1 * (now - e['time'].date()).days
+        max_days = max(max_days, days * -1)
         if e['channel_id'] is None and e['user_id']:
-            messages += e['amount']
+            messages[days] += e['amount']
         elif e['channel_id'] is None:
-            messages += e['amount']
+            messages[days] += e['amount']
+    if max_days < 3:
+        return None
+    x = []
+    y = []
+    for day, amount in messages.items():
+        x.append(day)
+        y.append(amount)
+    sns.set_theme(style="ticks", context="paper")
+    plt.style.use("dark_background")
+    plt.figure()
+    ax = sns.lineplot(x=x, y=y)
+    ax.set_xlim(max_days * -1, 0)
+    ax.tick_params(axis='x', rotation=45)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    buffer = BytesIO()
+    plt.savefig(buffer, format='png', transparent=True, bbox_inches='tight')
+    plt.clf()
+    plt.close()
+    buffer.seek(0)
+    return buffer
+
 
 
 def plot_message_channel_bar(ctx, entries):
