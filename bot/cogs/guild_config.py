@@ -51,6 +51,8 @@ class GuildConfig(commands.Cog):
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entry = con.fetchone()
+        if entry is None:
+            return GuildSettings.get_default(guild)
         return GuildSettings(guild, entry['prefix'], entry['message_cooldown'])
 
     @commands.command(name='!prefix')

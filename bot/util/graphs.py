@@ -162,8 +162,6 @@ def plot_daily_message(entries):
         y.append(val)
         if day not in names:
             names[day] = (now + timedelta(days=day)).strftime('%m/%d')
-    print(x)
-    print(y)
     sns.set_theme(style="ticks", context="paper")
     plt.style.use("dark_background")
     plt.figure()
@@ -171,6 +169,7 @@ def plot_daily_message(entries):
     ax.set_xlim(max_days * -1, 0)
     ax.set_xticks([i - max_days for i in range(max_days + 1)])
     ax.set_xticklabels([display for days, display in sorted(names.items(), key=lambda item: item[0])])
+    ax.set(xlabel='Date', ylabel='Messages')
     ax.tick_params(axis='x', rotation=45)
 
     ax.spines['top'].set_visible(False)
@@ -226,6 +225,7 @@ def plot_bar(values):
     plt.style.use("dark_background")
     plt.figure()
     ax = sns.barplot(x=sizes, y=labels, palette='Blues')
+    ax.set(xlabel='Messages')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     buffer = BytesIO()
