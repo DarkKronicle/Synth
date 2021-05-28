@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 from matplotlib import dates as md
 from io import BytesIO
 from datetime import datetime, timedelta, date
-from collections import Counter
+from collections import Counter, OrderedDict
 from bot.util import time_util as tutil
 from bot.synth_bot import main_color
 import random
@@ -138,6 +138,7 @@ def plot_week_messages(entries):
 
 def plot_daily_message(entries):
     messages = Counter()
+    names = {}
     now = tutil.get_utc().date()
     max_days = 0
     for e in entries:
@@ -148,20 +149,26 @@ def plot_daily_message(entries):
             messages[days] += e['amount']
         else:
             continue
+
         max_days = max(max_days, days * -1)
     if max_days < 3:
         return None
     x = []
     y = []
-    for day, amount in messages.items():
+    for day in range(max_days):
+        day = day - max_days
+        val = messages[day]
         x.append(day)
-        y.append(amount)
+        y.append(val)
+        if day not in names:
+            names[day] = (now - timedelta(days=day)).strftime('%m/%d')
     sns.set_theme(style="ticks", context="paper")
     plt.style.use("dark_background")
     plt.figure()
     ax = sns.lineplot(x=x, y=y)
     ax.set_xlim(max_days * -1, 0)
     ax.set_xticks([i - max_days for i in range(max_days)])
+    ax.set_xticklabels([display for days, display in sorted(names.items(), key=lambda item: item[0], reverse=True)])
     ax.tick_params(axis='x', rotation=45)
 
     ax.spines['top'].set_visible(False)
@@ -173,7 +180,6 @@ def plot_daily_message(entries):
     plt.close()
     buffer.seek(0)
     return buffer
-
 
 
 def plot_message_channel_bar(ctx, entries):
