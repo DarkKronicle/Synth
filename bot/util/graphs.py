@@ -142,11 +142,13 @@ def plot_daily_message(entries):
     max_days = 0
     for e in entries:
         days = -1 * (now - e['time'].date()).days
+        if e['channel_id'] is None and e['user_id'] is None:
+            messages[days] += e['amount']
+        elif e['user_id'] is None and e['channel_id'] is not None:
+            messages[days] += e['amount']
+        else:
+            continue
         max_days = max(max_days, days * -1)
-        if e['channel_id'] is None and e['user_id']:
-            messages[days] += e['amount']
-        elif e['channel_id'] is None:
-            messages[days] += e['amount']
     if max_days < 3:
         return None
     x = []
