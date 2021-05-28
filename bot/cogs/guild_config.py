@@ -1,8 +1,8 @@
-from bot import synth_bot
 from bot.util import checks
 from bot.util import database as db
 from bot.util.context import Context
 from discord.ext import commands
+from bot.util import storage_cache as cache
 
 
 class GuildConfigTable(db.Table, table_name='guild_config'):
@@ -11,13 +11,47 @@ class GuildConfigTable(db.Table, table_name='guild_config'):
     specific_remove = db.Column(db.Integer(small=True), default='7')
     time_remove = db.Column(db.Integer(small=True), default='30')
     detail_remove = db.Column(db.Integer(small=True), default='90')
+    message_cooldown = db.Column(db.Integer(small=True), default='60')
+
+
+class GuildSettings:
+    __slots__ = ('guild', 'prefix', 'message_cooldown')
+
+    def __init__(self, guild, prefix, message_cooldown):
+        self.guild = guild
+        self.prefix = prefix
+        self.message_cooldown = message_cooldown
+
+    @classmethod
+    def get_default(cls, guild):
+        return cls(guild, '~', 60)
+
+
+async def get_guild_settings(bot, guild):
+    """Get's basic guild settings information."""
+    cog = bot.get_cog('GuildConfig')
+    if cog is None:
+        return GuildSettings.get_default(guild)
+    return await cog.get_settings(guild.id)
 
 
 class GuildConfig(commands.Cog):
     """Configure and view server settings."""
 
     def __init__(self, bot):
-        self.bot: synth_bot.SynthBot = bot
+        self.bot = bot
+
+    @cache.cache()
+    async def get_settings(self, guild_id):
+        guild = self.bot.get_guild(guild_id)
+        if guild is None:
+            return None
+        command = 'SELECT prefix, message_cooldown FROM guild_config WHERE guild_id = {0};'
+        command = command.format(guild_id)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+            entry = con.fetchone()
+        return GuildSettings(guild, entry['prefix'], entry['message_cooldown'])
 
     @commands.command(name='!prefix')
     @checks.is_mod()
@@ -35,7 +69,7 @@ class GuildConfig(commands.Cog):
         command = command.format(str(ctx.guild.id))
         async with db.MaybeAcquire() as con:
             con.execute(command, (prefix,))
-        self.bot.get_guild_prefix.invalidate(self.bot, ctx.guild.id)
+        self.get_settings.invalidate(self, ctx.guild.id)
         await ctx.send(embed=ctx.create_embed(description='Updated prefix to `{0}`'.format(prefix)))
 
     @commands.command(name='*flat', hidden=True)
@@ -68,10 +102,47 @@ class GuildConfig(commands.Cog):
         """
         Displays the server's current prefix.
         """
-        prefix = await self.bot.get_guild_prefix(ctx.guild.id)
-        if prefix is None:
+        data = await self.get_settings(ctx.guild.id)
+        if data is None:
             prefix = 's~'
+        else:
+            prefix = data.prefix
         await ctx.send(embed=ctx.create_embed(description='Current prefix is: `{0}`'.format(prefix)))
+
+    @commands.command(name='cooldown')
+    async def display_cooldown(self, ctx: Context):
+        """Displays the current cooldown for the guild."""
+        data = await self.get_settings(ctx.guild.id)
+        if data is None:
+            cooldown = 60
+        else:
+            cooldown = data.message_cooldown
+        await ctx.send(embed=ctx.create_embed(description='Current cooldown is `{0}` seconds'.format(cooldown)))
+
+    @commands.command(name='!cooldown')
+    @checks.is_mod()
+    async def cooldown(self, ctx: Context, seconds: int):
+        """
+        Set's the cooldown before a user get's logged again.
+
+        This is used to prevent spamming so users who send a lot of messages at once won't get logged.
+
+        Examples:
+            !cooldown 60
+            !cooldown 0
+            !cooldown 180
+        """
+        if seconds < 0:
+            return await ctx.send(embed=ctx.create_embed('Seconds has to be greater than or equal to 0!', error=True))
+        if seconds > 600:
+            return await ctx.send(embed=ctx.create_embed("Seconds can't be greater than 600!", error=True))
+        command = ('INSERT INTO guild_config(guild_id, message_cooldown) VALUES ({0}, {1}) '
+                   'ON CONFLICT (guild_id) DO UPDATE SET message_cooldown = EXCLUDED.message_cooldown;')
+        command = command.format(ctx.guild.id, seconds)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+        self.get_settings.invalidate(self, ctx.guild.id)
+        await ctx.send(embed=ctx.create_embed('Message cooldown set to `{0}` seconds.'.format(seconds)))
 
 
 def setup(bot):

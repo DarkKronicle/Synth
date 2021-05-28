@@ -113,7 +113,7 @@ async def create_embed(command, guild):
     if guild is None:
         prefix.append('~')
     else:
-        prefix.append(await command.context.bot.get_guild_prefix(guild.id))
+        prefix.append(await command.context.bot.get_guild_prefix(guild))
     embed = discord.Embed(colour=MAIN_COLOR)
     embed.set_footer(text='Prefix: {0}'.format(', '.join(prefix)))
     return embed

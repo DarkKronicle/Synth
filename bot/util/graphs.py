@@ -155,7 +155,7 @@ def plot_daily_message(entries):
         return None
     x = []
     y = []
-    for day in range(max_days):
+    for day in range(1, max_days + 1):
         day = day - max_days
         val = messages[day]
         x.append(day)

@@ -45,6 +45,9 @@ class ExpiringDict(dict):   # noqa: WPS600
         self._verify_cache_integrity()
         return super().__getitem__(key)[0]
 
+    def set(self, key, value, seconds):
+        return self.__setitem__(key, value, seconds=seconds)
+
     def __setitem__(self, key, value, *, seconds=-1):  # noqa: WPS110
         if seconds < 0:
             seconds = self._default_expiring

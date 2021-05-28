@@ -3,6 +3,7 @@ import traceback
 from datetime import datetime
 
 import bot
+from bot.cogs import guild_config
 from bot.util import database as db
 from bot.util import storage_cache as cache
 from bot.util import time_util as tutil
@@ -40,7 +41,7 @@ async def get_prefix(bot_obj, message: discord.Message):
     if message.guild is None:
         prefix = '~'
     else:
-        prefix = await bot_obj.get_guild_prefix(message.guild.id)
+        prefix = await bot_obj.get_guild_prefix(message.guild)
         if prefix is None:
             prefix = '~'
     message_content: str = message.content
@@ -111,16 +112,11 @@ class SynthBot(commands.Bot):
             return
         raise error
 
-    @cache.cache(maxsize=settings_cache)
-    async def get_guild_prefix(self, guild_id):
-        command = 'SELECT prefix FROM guild_config WHERE guild_id = {0};'
-        command = command.format(guild_id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            row = con.fetchone()
-        if row is None:
-            return None
-        return row['prefix']
+    async def get_guild_prefix(self, guild):
+        settings = await guild_config.get_guild_settings(self, guild)
+        if not settings:
+            return '~'
+        return settings.prefix
 
     async def on_ready(self):
         self.setup_loop.start()

@@ -5,6 +5,8 @@ import bot.util.database as db
 import bot.util.storage_cache as storage_cache
 import bot.util.time_util as tutil
 import discord
+
+from bot.cogs import guild_config
 from bot.util.context import Context
 from discord.ext import commands
 
@@ -50,10 +52,16 @@ class Messages(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.guild is None or message.channel is None or message.author.bot:
             return
-        if message.author.id in self.cooldown:
+        if (message.guild.id, message.author.id) in self.cooldown:
             return
         self.cache[(message.guild.id, message.channel.id, message.author.id)] += 1
-        self.cooldown[message.author.id] = 1
+        cool = await guild_config.get_guild_settings(self.bot, message.guild)
+        if cool is None:
+            wait = 60
+        else:
+            wait = cool.message_cooldown
+        if wait > 0:
+            self.cooldown.set((message.guild.id, message.author.id), 1, wait)
 
     async def update_loop(self, time: datetime.datetime):
         if time.minute % 5 == 0:

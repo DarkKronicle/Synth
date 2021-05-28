@@ -182,7 +182,7 @@ class Statistics(commands.Cog):
             async with db.MaybeAcquire() as con:
                 con.execute(command)
                 entries = con.fetchall()
-
+        await ctx.trigger_typing()
         small, big = self.count_compressed(entries)
         description = f'Total of `{self.count_all(entries)} messages`\n\n\\*{small} messages lost some data, {big} messages lost most data.\n\n'
         if not selection.is_member():
