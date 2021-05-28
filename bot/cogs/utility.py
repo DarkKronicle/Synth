@@ -109,7 +109,10 @@ class Utility(commands.Cog):
             emoji = await ctx.reaction(embed=ctx.create_embed('What emoji will this option have?\n\nReact with it!', title='Option {0}'.format(i)))
             if not emoji:
                 return await ctx.send(embed=ctx.create_embed('Timed out!', error=True))
-            question = await ctx.ask(embed=ctx.create_embed('What will the option be?', title='Option {0}'.format(i)))
+            question = await ctx.ask(
+                embed=ctx.create_embed('What will the option be?', title='Option {0}'.format(i)),
+                timeout=180,
+            )
             if not description:
                 return await ctx.send(embed=ctx.create_embed('Timed out!', error=True))
             options.append((emoji, question))

@@ -125,12 +125,13 @@ class Context(commands.Context):
         try:
             answermsg = await self.bot.wait_for('message', timeout=timeout, check=check)
             if delete_after:
-                await answermsg.delete()
+                with contextlib.suppress(discord.HTTPException, discord.Forbidden):
+                    await answermsg.delete()
         except asyncio.TimeoutError:
             answer = None
 
         if delete_after:
-            with contextlib.suppress(discord.HTTPException):
+            with contextlib.suppress(discord.HTTPException, discord.Forbidden):
                 await message.delete()
 
         return answer
@@ -159,7 +160,7 @@ class Context(commands.Context):
             emoji = None
 
         if delete_after:
-            with contextlib.suppress(discord.HTTPException):
+            with contextlib.suppress(discord.HTTPException, discord.Forbidden):
                 await message.delete()
 
         return emoji
