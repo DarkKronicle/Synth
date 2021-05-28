@@ -155,19 +155,21 @@ def plot_daily_message(entries):
         return None
     x = []
     y = []
-    for day in range(1, max_days + 1):
+    for day in range(max_days + 1):
         day = day - max_days
         val = messages[day]
         x.append(day)
         y.append(val)
         if day not in names:
             names[day] = (now + timedelta(days=day)).strftime('%m/%d')
+    print(x)
+    print(y)
     sns.set_theme(style="ticks", context="paper")
     plt.style.use("dark_background")
     plt.figure()
     ax = sns.lineplot(x=x, y=y)
     ax.set_xlim(max_days * -1, 0)
-    ax.set_xticks([i - max_days for i in range(max_days)])
+    ax.set_xticks([i - max_days for i in range(max_days + 1)])
     ax.set_xticklabels([display for days, display in sorted(names.items(), key=lambda item: item[0])])
     ax.tick_params(axis='x', rotation=45)
 

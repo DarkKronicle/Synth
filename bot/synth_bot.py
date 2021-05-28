@@ -5,7 +5,6 @@ from datetime import datetime
 import bot
 from bot.cogs import guild_config
 from bot.util import database as db
-from bot.util import storage_cache as cache
 from bot.util import time_util as tutil
 import discord
 from bot.cogs.help import HelpCommand
@@ -188,7 +187,6 @@ class SynthBot(commands.Bot):
 
     async def update_presence(self):
         command = "SELECT SUM(amount) FROM messages WHERE time >= NOW() at time zone 'utc' - INTERVAL '24 HOURS';"
-        amount = 0
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entry = con.fetchone()
