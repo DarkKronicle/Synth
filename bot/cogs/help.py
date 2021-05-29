@@ -49,8 +49,7 @@ class BotHelpPageSource(menus.ListPageSource):
     async def format_page(self, menu, cogs):
         top = """
             `help [command/category]` for more specific help.'
-            [Invite Me](https://discord.com/api/oauth2/authorize?client_id=840674265933152306&permissions=471198800&scope=bot)
-            - [Support Server](https://discord.gg/WnaE3uZxDA) - [GitHub](https://github.com/DarkKronicle/Synth/)
+            [Invite Me](https://discord.com/api/oauth2/authorize?client_id=840674265933152306&permissions=471198800&scope=bot) - [Support Server](https://discord.gg/WnaE3uZxDA) - [GitHub](https://github.com/DarkKronicle/Synth/)
         """
         top = top.replace('    ', '')
 
@@ -176,7 +175,7 @@ class HelpCommand(commands.HelpCommand):
     def get_examples(self, examples, command):
         help_text = 'Examples:```'
         for example in examples:
-            example = example.replace('   ', '')
+            example = example.replace('  ', '').replace('  ', '')
             split = command.qualified_name.split(' ')
             if len(split) > 1:
                 example = ' '.join(split[:-1]) + example

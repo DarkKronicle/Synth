@@ -16,7 +16,7 @@ cogs_dir = 'bot.cogs'
 startup_extensions = [
     'utility', 'stats.messages', 'stats.statistics', 'stats.voice',
     'owner', 'guild_config', 'stats.stat_channels', 'data',
-    'stats.members', 'reaction_roles',
+    'stats.members', 'reaction_roles', 'stats.stat_config',
 ]
 description = 'The open source discord statistic bot.'
 main_color = discord.Colour(0x9d0df0)

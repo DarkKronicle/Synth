@@ -303,7 +303,7 @@ class Statistics(commands.Cog):
         for e in entries:
             if e['channel_id'] is None and e['user_id'] is None:
                 big += e['amount']
-            elif e['channel_id'] is None or e['user_id'] is None:
+            elif e['channel_id'] is None and e['user_id'] is not None:
                 small += e['amount']
         return small, big
 

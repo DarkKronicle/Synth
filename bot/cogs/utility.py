@@ -140,6 +140,30 @@ class Utility(commands.Cog):
         for emoji, _ in options:
             await embed.add_reaction(emoji)
 
+    @commands.command(name='roles')
+    @commands.guild_only()
+    async def roles(self, ctx: Context, user: typing.Optional[discord.Member] = None):
+        """
+        Displays the roles a user has.
+
+        Examples:
+            roles @DarkKronicle
+            roles Fury
+            roles
+        """
+        if not user:
+            user = ctx.author
+        entries = []
+        for role in user.roles:
+            role: discord.Role
+            entries.append('{0}\n```\n  Colour: {2}\n  Members: {3}\n  id {1}\n```'
+                           .format(role.mention, role.id, str(role.colour), len(role.members)))
+        page = paginator.SimplePages(entries, embed=ctx.create_embed(title='Roles for {0}'.format(str(user))), per_page=5)
+        try:
+            await page.start(ctx)
+        except:
+            pass
+
 
 def setup(bot):
     bot.add_cog(Utility())

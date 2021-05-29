@@ -1,3 +1,4 @@
+from bot.cogs.stats import stat_config
 from bot.util import database as db
 from bot.util import time_util as tutil
 import discord
@@ -45,6 +46,7 @@ class VoiceLog:
 
 
 class Voice(commands.Cog):
+    """Tracks voice chat using the bot."""
 
     def __init__(self, bot):
         self.bot: synth_bot.SynthBot = bot
@@ -55,7 +57,7 @@ class Voice(commands.Cog):
     async def update_loop(self, time):
         if not self.setup:
             self.setup = True
-            self.setup_voice()
+            await self.setup_voice()
         if time.minute % 5 == 0:
             await self.push()
 
@@ -97,14 +99,15 @@ class Voice(commands.Cog):
         await self.push()
         await ctx.check(0)
 
-    def should_member_log(self, member: discord.Member):
-        return not member.bot
+    async def should_member_log(self, member: discord.Member, channel):
+        if member.bot:
+            return False
+        if not await stat_config.should_log(self.bot, member.guild, channel, member):
+            return
+        return True
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        if not self.should_member_log(member):
-            return
-
         if after.channel is None:
             self.update_disconnect(member, after, before)
             return
@@ -113,43 +116,47 @@ class Voice(commands.Cog):
             return
 
         if before.channel is None:
-            self.update_new(member, after, before)
+            if not await self.should_member_log(member, after.channel):
+                return
+            await self.update_new(member, after, before)
             return
 
         if after.channel != before.channel:
-            self.update_switch(member, after, after)
+            await self.update_switch(member, after, after)
             return
 
-    def update_disconnect(self, member, after, before):
+    async def update_disconnect(self, member, after, before):
         for cached in self.cache:
             if cached.member_id == member.id and not cached.has_stopped():
                 cached.force_stop()
 
-    def update_new(self, member, after, before):
+    async def update_new(self, member, after, before):
         self.cache.append(VoiceLog(
             member.id,
             after.channel.id,
             after.channel.guild.id,
         ))
 
-    def update_switch(self, member, after, before):
+    async def update_switch(self, member, after, before):
         for cached in self.cache:
             if cached.member_id == member.id and not cached.has_stopped():
                 cached.force_stop()
+        if not await self.should_member_log(member, after.channel):
+            return
         self.cache.append(VoiceLog(
             member.id,
             after.channel.id,
             after.channel.guild.id,
         ))
 
-    def setup_voice(self):
+    async def setup_voice(self):
         for guild in self.bot.guilds:
             for voice in guild.voice_channels:
-                self._set_channel(voice)
+                await self._set_channel(voice)
 
-    def _set_channel(self, voice):
+    async def _set_channel(self, voice):
         for member in voice.members:
-            if self.should_member_log(member):
+            if await self.should_member_log(member, voice):
                 self.cache.append(VoiceLog(member.id, voice.id, voice.guild.id))
 
 

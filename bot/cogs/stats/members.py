@@ -3,6 +3,7 @@ from discord.ext import commands
 
 
 class Members(commands.Cog):
+    """Tracks members using the bot."""
 
     def __init__(self, bot):
         self.bot = bot

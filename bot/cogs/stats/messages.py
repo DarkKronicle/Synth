@@ -7,6 +7,7 @@ import bot.util.time_util as tutil
 import discord
 
 from bot.cogs import guild_config
+from bot.cogs.stats import stat_config
 from bot.util.context import Context
 from discord.ext import commands
 
@@ -31,6 +32,7 @@ class MessagesTable(db.Table, table_name='messages'):
 
 
 class Messages(commands.Cog):
+    """Tracks messages using the bot."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -53,6 +55,8 @@ class Messages(commands.Cog):
         if message.guild is None or message.channel is None or message.author.bot:
             return
         if (message.guild.id, message.author.id) in self.cooldown:
+            return
+        if not await stat_config.should_log(self.bot, message.guild, message.channel, message.author):
             return
         self.cache[(message.guild.id, message.channel.id, message.author.id)] += 1
         cool = await guild_config.get_guild_settings(self.bot, message.guild)

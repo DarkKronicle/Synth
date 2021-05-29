@@ -86,6 +86,7 @@ class ReactionTypeConverter(commands.Converter):
 
 
 class ReactionRoles(commands.Cog):
+    """Configures reaction roles."""
 
     def __init__(self, bot):
         self.bot = bot

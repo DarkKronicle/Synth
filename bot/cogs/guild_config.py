@@ -111,41 +111,6 @@ class GuildConfig(commands.Cog):
             prefix = data.prefix
         await ctx.send(embed=ctx.create_embed(description='Current prefix is: `{0}`'.format(prefix)))
 
-    @commands.command(name='cooldown')
-    async def display_cooldown(self, ctx: Context):
-        """Displays the current cooldown for the guild."""
-        data = await self.get_settings(ctx.guild.id)
-        if data is None:
-            cooldown = 60
-        else:
-            cooldown = data.message_cooldown
-        await ctx.send(embed=ctx.create_embed(description='Current cooldown is `{0}` seconds'.format(cooldown)))
-
-    @commands.command(name='!cooldown')
-    @checks.is_mod()
-    async def cooldown(self, ctx: Context, seconds: int):
-        """
-        Set's the cooldown before a user get's logged again.
-
-        This is used to prevent spamming so users who send a lot of messages at once won't get logged.
-
-        Examples:
-            !cooldown 60
-            !cooldown 0
-            !cooldown 180
-        """
-        if seconds < 0:
-            return await ctx.send(embed=ctx.create_embed('Seconds has to be greater than or equal to 0!', error=True))
-        if seconds > 600:
-            return await ctx.send(embed=ctx.create_embed("Seconds can't be greater than 600!", error=True))
-        command = ('INSERT INTO guild_config(guild_id, message_cooldown) VALUES ({0}, {1}) '
-                   'ON CONFLICT (guild_id) DO UPDATE SET message_cooldown = EXCLUDED.message_cooldown;')
-        command = command.format(ctx.guild.id, seconds)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-        self.get_settings.invalidate(self, ctx.guild.id)
-        await ctx.send(embed=ctx.create_embed('Message cooldown set to `{0}` seconds.'.format(seconds)))
-
 
 def setup(bot):
     bot.add_cog(GuildConfig(bot))
