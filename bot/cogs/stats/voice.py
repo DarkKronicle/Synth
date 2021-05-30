@@ -109,7 +109,7 @@ class Voice(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if after.channel is None:
-            self.update_disconnect(member, after, before)
+            await self.update_disconnect(member, after, before)
             return
 
         if after.afk and not isinstance(after.channel, discord.StageChannel):

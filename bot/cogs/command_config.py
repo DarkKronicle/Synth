@@ -8,7 +8,7 @@ from bot.util import storage_cache as cache
 from bot.util.context import Context
 
 
-class StatConfig(db.Table, table_name='stat_config'):
+class CommandConfigTable(db.Table, table_name='command_config'):
     guild_id = db.Column(db.Integer(big=True), index=True, nullable=False)
     type = db.Column(db.Integer(small=True))
     object_id = db.Column(db.Integer(big=True))
