@@ -13,7 +13,10 @@ import logging
 
 
 logging.getLogger().setLevel(logging.INFO)
+logging.getLogger('discord').setLevel(logging.INFO)
 logging.getLogger('discord.client').setLevel(logging.WARNING)
+logging.getLogger('discord.gateway').setLevel(logging.WARNING)
+logging.getLogger('discord.http').setLevel(logging.WARNING)
 
 
 def create_tables(connection):
