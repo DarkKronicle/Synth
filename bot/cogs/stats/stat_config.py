@@ -269,6 +269,25 @@ class StatisticConfig(commands.Cog):
             g_config.get_settings.invalidate(g_config, ctx.guild.id)
         await ctx.send(embed=ctx.create_embed('Message cooldown set to `{0}` seconds.'.format(seconds)))
 
+    @stat_config.command(name='reset')
+    @checks.is_admin()
+    async def reset_cc(self, ctx: Context):
+        """Reset's all statistic configurations."""
+        prompt = paginator.Prompt('Are you sure you want to reset statistic config?')
+        try:
+            await prompt.start(ctx)
+        except:
+            pass
+        if not prompt.result:
+            return await ctx.send(embed=ctx.create_embed('Cancelled!', error=True))
+
+        command = 'DELETE FROM stat_config WHERE guild_id = {0};'
+        command = command.format(ctx.guild.id)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+        self.get_stat_config.invalidate(self, ctx.guild.id)
+        await ctx.send(embed=ctx.create_embed('Reset command config!'))
+
 
 def setup(bot):
     bot.add_cog(StatisticConfig(bot))

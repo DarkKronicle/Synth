@@ -49,7 +49,7 @@ class StatisticType:
         if self.is_guild():
             return f'guild_id = {self.guild.id}'
         if self.is_global():
-            return 'time IS NOT NONE'
+            return None
 
     def get_name(self):
         if self.is_member():
@@ -66,7 +66,7 @@ class StatConverter(commands.Converter):
 
     async def convert(self, ctx: Context, argument):
         low = argument.lower()
-        if low == 'global' and await ctx.bot.is_owner(ctx.author):
+        if low == 'global':
             return StatisticType(_global=True)
         if low == 'guild' or low == 'server':
             return StatisticType(guild=ctx.guild, channel=ctx.channel)
@@ -87,34 +87,6 @@ class StatConverter(commands.Converter):
         raise commands.errors.BadArgument()
 
 
-class IntervalConverter(commands.Converter):
-    DAY_REGEX = re.compile(r'(\d{1,2}) day(s)?')
-    WEEK_REGEX = re.compile(r'(\d{1,2}) week(s)?')
-    MONTH_REGEX = re.compile(r'(\d{1,2}) month(s)?')
-
-    async def convert(self, ctx: Context, argument):
-        low = argument.lower()
-        match: re.Match = self.DAY_REGEX.search(low)
-        if match:
-            days = int(match.group(1))
-            if days <= 0:
-                raise commands.errors.BadArgument('Days has to be greater than 0!')
-            return f'{days} days'
-        match: re.Match = self.WEEK_REGEX.search(low)
-        if match:
-            weeks = int(match.group(1))
-            if weeks <= 0:
-                raise commands.errors.BadArgument('Weeks has to be great than 0!')
-            return f'{weeks} weeks'
-        match: re.Match = self.MONTH_REGEX.search(low)
-        if match:
-            months = int(match.group(1))
-            if months >= 24 or months <= 0:
-                raise commands.errors.BadArgument('Months has to be above zero and below 24!')
-            return f'{months} months'
-        return None
-
-
 class Statistics(commands.Cog):
     """Commands to view statistics about the server."""
 
@@ -133,7 +105,7 @@ class Statistics(commands.Cog):
 
     @stats.command(name='messages', aliases=['msg', 'message'])
     async def messages(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *,
-                       interval: IntervalConverter = '1 day'):
+                       interval: tutil.IntervalConverter = '1 day'):
         """
         Pulls up a menu with statistics containing chat information.
 
@@ -149,8 +121,11 @@ class Statistics(commands.Cog):
         if interval is None:
             interval = '1 day'
 
-        command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
-        command = command.format(selection.get_condition(), interval)
+        command = "SELECT * FROM messages WHERE {0} time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
+        cond = ''
+        if selection.get_condition() is not None:
+            cond = selection.get_condition() + ' AND'
+        command = command.format(cond, interval)
         async with db.MaybeAcquire() as con:
             con.execute(command)
             entries = con.fetchall()
@@ -167,9 +142,9 @@ class Statistics(commands.Cog):
             images.append(week)
         if past is not None:
             images.append(past)
-        if not selection.is_channel():
+        if not selection.is_channel() and not selection.is_global():
             images.append(graphs.plot_message_channel_bar(ctx, entries))
-        if not selection.is_member():
+        if not selection.is_member() and not selection.is_global():
             images.append(graphs.plot_message_user_bar(ctx, entries))
         embed.set_image(url='attachment://graph.png')
         menu = ImagePaginator(embed, images)
@@ -185,7 +160,7 @@ class Statistics(commands.Cog):
         await ctx.trigger_typing()
         small, big = self.count_compressed(entries)
         description = f'Total of `{self.count_all(entries)} messages`\n\n\\*{small} messages lost some data, {big} messages lost most data.\n\n'
-        if not selection.is_member():
+        if not selection.is_member() and not selection.is_global():
             formatted_people = []
             i = 0
             for p, amount in self.count(entries, 'user_id', n=5):
@@ -193,13 +168,27 @@ class Statistics(commands.Cog):
                 formatted_people.append(f'`{i}.` <@{p}> - `{amount} messages`')
             description += '**Messages | Top 5 Users**\n' + '\n'.join(formatted_people)
 
-        if not selection.is_channel():
+        if not selection.is_channel() and not selection.is_global():
             formatted_channels = []
             i = 0
             for c, amount in self.count(entries, 'channel_id', n=5):
                 i += 1
                 formatted_channels.append(f'`{i}.` <#{c}> - `{amount} messages`')
             description += '\n\n **Messages | Top 5 Channels**\n' \
+                           + '\n'.join(formatted_channels)
+
+        if selection.is_global() and await self.bot.is_owner(ctx.author):
+            formatted_channels = []
+            i = 0
+            for c, amount in self.count(entries, 'guild_id', n=5):
+                i += 1
+                guild = self.bot.get_guild(c)
+                if guild:
+                    name = guild.name
+                else:
+                    name = str(c)
+                formatted_channels.append(f'`{i}. {name} (`{c}`) - `{amount} messages`')
+            description += '\n\n **Messages | Top 5 Guilds**\n' \
                            + '\n'.join(formatted_channels)
 
         embed = ctx.create_embed(
@@ -214,7 +203,7 @@ class Statistics(commands.Cog):
 
     @stats.command(name='voice')
     async def voice(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *,
-                    interval: IntervalConverter = '1 day'):
+                    interval: tutil.IntervalConverter = '1 day'):
         """
         Pulls up a menu with statistics containing voice chat information.
 

@@ -1,6 +1,36 @@
+import re
 from datetime import datetime, timedelta
 
+from discord.ext import commands
 from pytz import timezone
+
+
+class IntervalConverter(commands.Converter):
+    DAY_REGEX = re.compile(r'(\d{1,2}) day(s)?')
+    WEEK_REGEX = re.compile(r'(\d{1,2}) week(s)?')
+    MONTH_REGEX = re.compile(r'(\d{1,2}) month(s)?')
+
+    async def convert(self, ctx, argument):
+        low = argument.lower()
+        match: re.Match = self.DAY_REGEX.search(low)
+        if match:
+            days = int(match.group(1))
+            if days <= 0:
+                raise commands.errors.BadArgument('Days has to be greater than 0!')
+            return f'{days} days'
+        match: re.Match = self.WEEK_REGEX.search(low)
+        if match:
+            weeks = int(match.group(1))
+            if weeks <= 0:
+                raise commands.errors.BadArgument('Weeks has to be great than 0!')
+            return f'{weeks} weeks'
+        match: re.Match = self.MONTH_REGEX.search(low)
+        if match:
+            months = int(match.group(1))
+            if months >= 24 or months <= 0:
+                raise commands.errors.BadArgument('Months has to be above zero and below 24!')
+            return f'{months} months'
+        return None
 
 
 def human(total_seconds):

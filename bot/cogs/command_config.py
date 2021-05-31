@@ -381,7 +381,7 @@ class CommandSettings(commands.Cog):
 
         Examples:
             disable #bot
-            disable DarkKronicle
+            disable DarkKronicle help
             disable
             disable 523605852557672449
         """
@@ -415,8 +415,8 @@ class CommandSettings(commands.Cog):
 
         Examples:
             enable #bot
-            enable DarkKronicle
-            enable
+            enable DarkKronicle ping
+            enable help
             enable 523605852557672449
         """
         if not to_enable:
