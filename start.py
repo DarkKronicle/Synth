@@ -12,11 +12,22 @@ import importlib
 import logging
 
 
+class RemoveNoise(logging.Filter):
+    def __init__(self):
+        super().__init__(name='discord.http')
+
+    def filter(self, record):
+        if record.levelname == 'WARNING' and 'We are being rate limited.' in record.msg:
+            return False
+        return True
+
+
 logging.getLogger().setLevel(logging.INFO)
 logging.getLogger('discord').setLevel(logging.INFO)
 logging.getLogger('discord.client').setLevel(logging.WARNING)
 logging.getLogger('discord.gateway').setLevel(logging.WARNING)
 logging.getLogger('discord.http').setLevel(logging.WARNING)
+logging.getLogger('discord.http').addFilter(RemoveNoise())
 
 
 def create_tables(connection):

@@ -93,7 +93,7 @@ class StatChannels(commands.Cog):
             await channel.edit(name=new_name)
 
     @commands.group(name='!channels', aliases=['!channel'])
-    @checks.is_mod()
+    @checks.is_manager()
     @commands.guild_only()
     async def channels(self, ctx: Context):
         """View and configure statistic channels."""
@@ -153,7 +153,7 @@ class StatChannels(commands.Cog):
 
     @channels.command(name="create")
     @commands.cooldown(1, 10)
-    async def create(self, ctx: Context, channel: typing.Union[discord.VoiceChannel, discord.TextChannel]):
+    async def create(self, ctx: Context, channel: typing.Union[discord.VoiceChannel, discord.TextChannel, discord.StageChannel, discord.CategoryChannel]):
         """
         Opens a setup wizard to create a custom statistic channel.
 

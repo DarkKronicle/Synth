@@ -3,7 +3,7 @@ import traceback
 from datetime import datetime
 
 import bot
-from bot.cogs import guild_config
+from bot.cogs import guild_config, command_config
 from bot.util import database as db
 from bot.util import time_util as tutil
 import discord
@@ -17,6 +17,7 @@ startup_extensions = [
     'utility', 'stats.messages', 'stats.statistics', 'stats.voice',
     'owner', 'guild_config', 'stats.stat_channels', 'data',
     'stats.members', 'reaction_roles', 'stats.stat_config',
+    'command_config',
 ]
 description = 'The open source discord statistic bot.'
 main_color = discord.Colour(0x9d0df0)
@@ -129,6 +130,12 @@ class SynthBot(commands.Bot):
         ctx: Context = await self.get_context(message, cls=Context)
 
         if ctx.command is None:
+            return
+
+        # TODO Context doesn't walk through groups so only the base command is ever shown...
+        ctx.permissions = await command_config.get_perms(self, ctx)
+
+        if not ctx.permissions.allowed and not await self.is_owner(ctx.author):
             return
 
         await self.invoke(ctx)

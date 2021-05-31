@@ -30,7 +30,7 @@ class Data(commands.Cog):   # noqa: WPS110
         self.bot = bot
 
     @commands.group(name='!export')
-    @checks.is_mod()
+    @checks.is_manager()
     async def export(self, ctx: Context):
         """Export command for server information."""
 

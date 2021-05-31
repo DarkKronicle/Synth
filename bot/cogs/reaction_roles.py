@@ -164,7 +164,7 @@ class ReactionRoles(commands.Cog):
             return None
 
     @commands.group(name='!role', aliases=['!roles'])
-    @checks.is_mod()
+    @checks.is_manager()
     @commands.guild_only()
     async def role_command(self, ctx: Context):
         if ctx.invoked_subcommand is None:

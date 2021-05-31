@@ -6,6 +6,7 @@ from discord.ext import commands
 from bot.util import database as db, checks, paginator
 from bot.util import storage_cache as cache
 from bot.util.context import Context
+from bot.util.format import human_bool
 
 
 class StatConfig(db.Table, table_name='stat_config'):
@@ -120,12 +121,6 @@ async def should_log(bot, guild, channel, user):
     return await stats_config.is_allowed(guild, channel, user)
 
 
-def human_allow(allowed):
-    if allowed:
-        return '✅'
-    return '❌'
-
-
 class StatisticConfig(commands.Cog):
     """Configures how statistics are tracked."""
 
@@ -146,7 +141,7 @@ class StatisticConfig(commands.Cog):
         return perms.is_allowed(channel, user)
 
     @commands.group('!statconfig', aliases=['!sconfig', '!statc'])
-    @checks.is_mod()
+    @checks.is_manager()
     @commands.guild_only()
     async def stat_config(self, ctx: Context):
         """
@@ -164,13 +159,13 @@ class StatisticConfig(commands.Cog):
         config = await self.get_stat_config(ctx.guild.id)
         entries = ['Guild {0}'.format(config.guild)]
         for category in config.categories:
-            entries.append('{1} Category <#{0}>'.format(category, human_allow(config.categories[category])))
+            entries.append('{1} Category <#{0}>'.format(category, human_bool(config.categories[category])))
         for channel in config.channels:
-            entries.append('{1} <#{0}>'.format(channel, human_allow(config.channels[channel])))
+            entries.append('{1} <#{0}>'.format(channel, human_bool(config.channels[channel])))
         for user in config.users:
-            entries.append('{1} <@{0}>'.format(user, human_allow(config.users[user])))
+            entries.append('{1} <@{0}>'.format(user, human_bool(config.users[user])))
         for role in config.roles:
-            entries.append('{1} <@&{0}>'.format(role, human_allow(config.roles[role])))
+            entries.append('{1} <@&{0}>'.format(role, human_bool(config.roles[role])))
         menu = paginator.SimplePages(
             entries, per_page=15,
             embed=ctx.create_embed(title='Settings for {0}'.format(ctx.guild.name)),
@@ -273,7 +268,7 @@ class StatisticConfig(commands.Cog):
         self.get_stat_config.invalidate(self, guild_id)
 
     @stat_config.command(name='cooldown')
-    @checks.is_mod()
+    @checks.is_manager()
     async def cooldown(self, ctx: Context, seconds: int = None):
         """
         Set's the cooldown before a user get's logged again.

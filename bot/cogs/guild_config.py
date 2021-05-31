@@ -56,7 +56,7 @@ class GuildConfig(commands.Cog):
         return GuildSettings(guild, entry['prefix'], entry['message_cooldown'])
 
     @commands.command(name='!prefix')
-    @checks.is_mod()
+    @checks.is_manager()
     async def prefix(self, ctx: Context, *, prefix: str = None):
         """
         Change's the server's prefix. The global prefix s~ will always be accessible.

@@ -18,6 +18,7 @@ class Context(commands.Context):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.connection = None
+        self.permissions = None
 
     async def timeout(self, *, delete_after=15):
         """
@@ -67,11 +68,11 @@ class Context(commands.Context):
             self.connection.release()
 
     async def check(self, action_result):
-        if action_result == 0:
+        if action_result == 0 or action_result is True:
             em = '👍'
-        elif action_result == 2:
+        elif action_result == 2 or action_result is None:
             em = '<:eyee:840634640549281802>'
-        elif action_result == 1:
+        elif action_result == 1 or action_result is False:
             em = '😦'
         await self.message.add_reaction(em)
 
