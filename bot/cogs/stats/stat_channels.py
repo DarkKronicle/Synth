@@ -93,7 +93,7 @@ class StatChannels(commands.Cog):
             await channel.edit(name=new_name)
 
     @commands.group(name='!channels', aliases=['!channel'])
-    @checks.is_manager()
+    @checks.is_manager_or_perms()
     @commands.guild_only()
     async def channels(self, ctx: Context):
         """View and configure statistic channels."""

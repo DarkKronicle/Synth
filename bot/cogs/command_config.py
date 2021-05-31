@@ -1,5 +1,3 @@
-import enum
-
 import discord
 import typing
 from discord.ext import commands
@@ -7,6 +5,7 @@ from bot.util import database as db, checks, paginator
 from bot.util import storage_cache as cache
 from bot.util.context import Context
 from bot.util.format import human_bool
+from bot.util.selection import FilterType
 
 
 class CommandConfigTable(db.Table, table_name='command_config'):
@@ -33,43 +32,6 @@ class RoleConfig(db.Table, table_name='role_config'):
     manager_role = db.Column(db.Integer(big=True), nullable=True)
 
 
-class CommandConfigType(enum.Enum):
-
-    guild = 0
-    channel = 1
-    user = 2
-    role = 3
-    category = 4
-
-    @classmethod
-    def from_object(cls, obj):
-        if isinstance(obj, (discord.Guild,)):
-            return CommandConfigType.guild
-        if isinstance(obj, (discord.VoiceChannel, discord.TextChannel, discord.StageChannel)):
-            return CommandConfigType.channel
-        if isinstance(obj, (discord.User, discord.Member)):
-            return CommandConfigType.user
-        if isinstance(obj, (discord.Role,)):
-            return CommandConfigType.role
-        if isinstance(obj, (discord.CategoryChannel,)):
-            return CommandConfigType.category
-
-    @classmethod
-    def format_type(cls, obj):
-        stat_type = CommandConfigType.from_object(obj)
-        if stat_type == CommandConfigType.guild:
-            return 'Guild {0}'.format(obj.name)
-        if stat_type == CommandConfigType.channel:
-            return 'Channel {0}'.format(obj.mention)
-        if stat_type == CommandConfigType.user:
-            return 'User {0}'.format(obj.mention)
-        if stat_type == CommandConfigType.role:
-            return 'Role {0}'.format(obj.mention)
-        if stat_type == CommandConfigType.category:
-            return 'Category {0}'.format(obj.name)
-        return str(object)
-
-
 class CommandPermissions:
 
     class PermissionData:
@@ -92,19 +54,19 @@ class CommandPermissions:
             allow = row['allow']
             name = row['name']
             try:
-                stat_type = CommandConfigType(row['type'])
+                stat_type = FilterType(row['type'])
             except ValueError:
                 # Not a proper type...
                 continue
-            if stat_type == CommandConfigType.guild:
+            if stat_type == FilterType.guild:
                 self._put_allow(self.guild, name, allow)
-            elif stat_type == CommandConfigType.channel:
+            elif stat_type == FilterType.channel:
                 self._put_allow_dict(self.channels, object_id, name, allow)
-            elif stat_type == CommandConfigType.category:
+            elif stat_type == FilterType.category:
                 self._put_allow_dict(self.categories, object_id, name, allow)
-            elif stat_type == CommandConfigType.user:
+            elif stat_type == FilterType.user:
                 self._put_allow_dict(self.users, object_id, name, allow)
-            elif stat_type == CommandConfigType.role:
+            elif stat_type == FilterType.role:
                 self._put_allow_dict(self.roles, object_id, name, allow)
 
     @staticmethod
@@ -153,10 +115,10 @@ class CommandPermissions:
 
         for cmd in cmds:
             if cmd in self.guild.allowed:
-                modded.allowed.add((cmd, self.guild_id, CommandConfigType.guild))
+                modded.allowed.add((cmd, self.guild_id, FilterType.guild))
                 allowed = True
             elif cmd in self.guild.denied:
-                modded.denied.add((cmd, self.guild_id, CommandConfigType.guild))
+                modded.denied.add((cmd, self.guild_id, FilterType.guild))
                 allowed = False
 
         category = channel.category
@@ -165,20 +127,20 @@ class CommandPermissions:
             if category_allowed is not None:
                 for cmd in cmds:
                     if cmd in category_allowed.allowed:
-                        modded.allowed.add((cmd, category.id, CommandConfigType.category))
+                        modded.allowed.add((cmd, category.id, FilterType.category))
                         allowed = True
                     elif cmd in category_allowed.denied:
-                        modded.denied.add((cmd, category.id, CommandConfigType.category))
+                        modded.denied.add((cmd, category.id, FilterType.category))
                         allowed = False
 
         channel_allowed = self.channels.get(channel.id)
         if channel_allowed is not None:
             for cmd in cmds:
                 if cmd in channel_allowed.allowed:
-                    modded.allowed.add((cmd, channel.id, CommandConfigType.channel))
+                    modded.allowed.add((cmd, channel.id, FilterType.channel))
                     allowed = True
                 elif cmd in channel_allowed.denied:
-                    modded.denied.add((cmd, channel.id, CommandConfigType.channel))
+                    modded.denied.add((cmd, channel.id, FilterType.channel))
                     allowed = False
 
         for role in user.roles:
@@ -190,20 +152,20 @@ class CommandPermissions:
             if role_allowed is not None:
                 for cmd in cmds:
                     if cmd in role_allowed.allowed:
-                        modded.allowed.add((cmd, role.id, CommandConfigType.role))
+                        modded.allowed.add((cmd, role.id, FilterType.role))
                         allowed = True
                     elif cmd in role_allowed.denied:
-                        modded.denied.add((cmd, role.id, CommandConfigType.role))
+                        modded.denied.add((cmd, role.id, FilterType.role))
                         allowed = False
 
         user_allowed = self.users.get(user.id)
         if user_allowed is not None:
             for cmd in cmds:
                 if cmd in user_allowed.allowed:
-                    modded.allowed.add((cmd, user.id, CommandConfigType.user))
+                    modded.allowed.add((cmd, user.id, FilterType.user))
                     allowed = True
                 elif cmd in user_allowed.denied:
-                    modded.denied.add((cmd, user.id, CommandConfigType.user))
+                    modded.denied.add((cmd, user.id, FilterType.user))
                     allowed = False
 
         return allowed, modded, admin, manager
@@ -294,7 +256,7 @@ class CommandSettings(commands.Cog):
         Guild -> Channel -> Role -> User
         """
         if not ctx.invoked_subcommand:
-            await ctx.send_help('!statconfig')
+            await ctx.send_help('!commandconfig')
 
     @command_config.command(name='admin')
     @checks.is_admin()
@@ -314,7 +276,6 @@ class CommandSettings(commands.Cog):
         else:
             command = command.format(ctx.guild.id, role.id)
         async with db.MaybeAcquire() as con:
-            print(command)
             con.execute(command)
         if role:
             description = 'Set Admin Role to {0}'.format(role.mention)
@@ -409,7 +370,7 @@ class CommandSettings(commands.Cog):
     async def command_disable(
             self,
             ctx: Context,
-            to_disable: typing.Union[discord.TextChannel, discord.VoiceChannel, discord.Member, discord.Role, discord.CategoryChannel] = None,
+            to_disable: typing.Optional[typing.Union[discord.TextChannel, discord.VoiceChannel, discord.Member, discord.Role, discord.CategoryChannel]] = None,
             *,
             command: CommandName() = '',
     ):
@@ -428,22 +389,22 @@ class CommandSettings(commands.Cog):
             to_disable = ctx.guild
         await self.change_config(
             False,
-            CommandConfigType.from_object(to_disable),
+            FilterType.from_object(to_disable),
             ctx.guild.id,
             to_disable.id,
             command,
         )
         if command != '':
-            description = 'Disabled command `{1}` for {0}'.format(CommandConfigType.format_type(to_disable), command)
+            description = 'Disabled command `{1}` for {0}'.format(FilterType.format_type(to_disable), command)
         else:
-            description = 'Disabled globally for {0}'.format(CommandConfigType.format_type(to_disable))
+            description = 'Disabled globally for {0}'.format(FilterType.format_type(to_disable))
         await ctx.send(embed=ctx.create_embed(description))
 
     @command_config.command(name='enable')
     async def command_enable(
             self,
             ctx: Context,
-            to_enable: typing.Union[discord.TextChannel, discord.VoiceChannel, discord.Member, discord.Role, discord.CategoryChannel] = None,
+            to_enable: typing.Optional[typing.Union[discord.TextChannel, discord.VoiceChannel, discord.Member, discord.Role, discord.CategoryChannel]] = None,
             *,
             command: CommandName() = ''
     ):
@@ -462,22 +423,22 @@ class CommandSettings(commands.Cog):
             to_enable = ctx.guild
         await self.change_config(
             True,
-            CommandConfigType.from_object(to_enable),
+            FilterType.from_object(to_enable),
             ctx.guild.id,
             to_enable.id,
             command,
         )
         if command != '':
-            description = 'Enabled command `{1}` for {0}'.format(CommandConfigType.format_type(to_enable), command)
+            description = 'Enabled command `{1}` for {0}'.format(FilterType.format_type(to_enable), command)
         else:
-            description = 'Enabled globally for {0}'.format(CommandConfigType.format_type(to_enable))
+            description = 'Enabled globally for {0}'.format(FilterType.format_type(to_enable))
         await ctx.send(embed=ctx.create_embed(description))
 
     @command_config.command(name='remove')
     async def command_remove(
             self,
             ctx: Context,
-            to_disable: typing.Union[discord.TextChannel, discord.VoiceChannel, discord.Member, discord.Role, discord.CategoryChannel],
+            to_remove: typing.Optional[typing.Union[discord.TextChannel, discord.VoiceChannel, discord.Member, discord.Role, discord.CategoryChannel]] = None,
             *,
             command: CommandName() = ''
     ):
@@ -489,18 +450,36 @@ class CommandSettings(commands.Cog):
             remove DarkKronicle
             remove 523605852557672449
         """
-        if not to_disable:
-            to_disable = ctx.guild
+        if not to_remove:
+            to_remove = ctx.guild
         await self.remove_config(
             ctx.guild.id,
-            to_disable.id,
+            to_remove.id,
             command,
         )
         if command != '':
-            description = 'Removed command settings `{1}` for {0}'.format(CommandConfigType.format_type(to_disable), command)
+            description = 'Removed command settings `{1}` for {0}'.format(FilterType.format_type(to_remove), command)
         else:
-            description = 'Removed global settings for {0}'.format(CommandConfigType.format_type(to_disable))
+            description = 'Removed global settings for {0}'.format(FilterType.format_type(to_remove))
         await ctx.send(embed=ctx.create_embed(description))
+
+    @command_config.command(name='reset')
+    @checks.is_admin()
+    async def reset_cc(self, ctx: Context):
+        prompt = paginator.Prompt('Are you sure you want to reset command config?')
+        try:
+            await prompt.start(ctx)
+        except:
+            pass
+        if not prompt.result:
+            return await ctx.send(embed=ctx.create_embed('Cancelled!', error=True))
+
+        command = 'DELETE FROM command_config WHERE guild_id = {0};'
+        command = command.format(ctx.guild.id)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+        self.get_command_config.invalidate(self, ctx.guild.id)
+        await ctx.send(embed=ctx.create_embed('Reset command config!'))
 
     async def change_config(self, allow, config_type, guild_id, object_id, name):
         command = ('INSERT INTO command_config(guild_id, type, object_id, allow, name) '

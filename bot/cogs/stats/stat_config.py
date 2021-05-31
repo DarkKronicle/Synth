@@ -1,5 +1,3 @@
-import enum
-
 import discord
 import typing
 from discord.ext import commands
@@ -7,6 +5,7 @@ from bot.util import database as db, checks, paginator
 from bot.util import storage_cache as cache
 from bot.util.context import Context
 from bot.util.format import human_bool
+from bot.util.selection import FilterType
 
 
 class StatConfig(db.Table, table_name='stat_config'):
@@ -24,43 +23,6 @@ class StatConfig(db.Table, table_name='stat_config'):
         return statement + '\n' + sql
 
 
-class StatConfigType(enum.Enum):
-
-    guild = 0
-    channel = 1
-    user = 2
-    role = 3
-    category = 4
-
-    @classmethod
-    def from_object(cls, obj):
-        if isinstance(obj, (discord.Guild,)):
-            return StatConfigType.guild
-        if isinstance(obj, (discord.VoiceChannel, discord.TextChannel, discord.StageChannel)):
-            return StatConfigType.channel
-        if isinstance(obj, (discord.User, discord.Member)):
-            return StatConfigType.user
-        if isinstance(obj, (discord.Role,)):
-            return StatConfigType.role
-        if isinstance(obj, (discord.CategoryChannel,)):
-            return StatConfigType.category
-
-    @classmethod
-    def format_type(cls, obj):
-        stat_type = StatConfigType.from_object(obj)
-        if stat_type == StatConfigType.guild:
-            return 'Guild {0}'.format(obj.name)
-        if stat_type == StatConfigType.channel:
-            return 'Channel {0}'.format(obj.mention)
-        if stat_type == StatConfigType.user:
-            return 'User {0}'.format(obj.mention)
-        if stat_type == StatConfigType.role:
-            return 'Role {0}'.format(obj.mention)
-        if stat_type == StatConfigType.category:
-            return 'Category {0}'.format(obj.name)
-        return str(object)
-
-
 class StatPermissions:
 
     def __init__(self, guild_id, db_rows):
@@ -74,19 +36,19 @@ class StatPermissions:
             object_id = row['object_id']
             allow = row['allow']
             try:
-                stat_type = StatConfigType(row['type'])
+                stat_type = FilterType(row['type'])
             except ValueError:
                 # Not a proper type...
                 continue
-            if stat_type == StatConfigType.guild:
+            if stat_type == FilterType.guild:
                 self.guild = allow
-            elif stat_type == StatConfigType.channel:
+            elif stat_type == FilterType.channel:
                 self.channels[object_id] = allow
-            elif stat_type == StatConfigType.category:
+            elif stat_type == FilterType.category:
                 self.categories[object_id] = allow
-            elif stat_type == StatConfigType.user:
+            elif stat_type == FilterType.user:
                 self.users[object_id] = allow
-            elif stat_type == StatConfigType.role:
+            elif stat_type == FilterType.role:
                 self.roles[object_id] = allow
 
     def is_allowed(self, channel, user: discord.Member):
@@ -196,11 +158,11 @@ class StatisticConfig(commands.Cog):
             to_disable = ctx.guild
         await self.change_config(
             False,
-            StatConfigType.from_object(to_disable),
+            FilterType.from_object(to_disable),
             ctx.guild.id,
             to_disable.id,
         )
-        await ctx.send(embed=ctx.create_embed('Disabled {0}'.format(StatConfigType.format_type(to_disable))))
+        await ctx.send(embed=ctx.create_embed('Disabled {0}'.format(FilterType.format_type(to_disable))))
 
     @stat_config.command(name='enable')
     async def stat_enable(
@@ -223,11 +185,11 @@ class StatisticConfig(commands.Cog):
             to_enable = ctx.guild
         await self.change_config(
             True,
-            StatConfigType.from_object(to_enable),
+            FilterType.from_object(to_enable),
             ctx.guild.id,
             to_enable.id,
         )
-        await ctx.send(embed=ctx.create_embed('Enabled {0}'.format(StatConfigType.format_type(to_enable))))
+        await ctx.send(embed=ctx.create_embed('Enabled {0}'.format(FilterType.format_type(to_enable))))
 
     @stat_config.command(name='remove')
     async def stat_remove(
@@ -249,7 +211,7 @@ class StatisticConfig(commands.Cog):
             ctx.guild.id,
             to_disable.id,
         )
-        await ctx.send(embed=ctx.create_embed('Removed settings for {0}'.format(StatConfigType.format_type(to_disable))))
+        await ctx.send(embed=ctx.create_embed('Removed settings for {0}'.format(FilterType.format_type(to_disable))))
 
     async def change_config(self, allow, config_type, guild_id, object_id):
         command = ('INSERT INTO stat_config(guild_id, type, object_id, allow) '
@@ -268,7 +230,6 @@ class StatisticConfig(commands.Cog):
         self.get_stat_config.invalidate(self, guild_id)
 
     @stat_config.command(name='cooldown')
-    @checks.is_manager()
     async def cooldown(self, ctx: Context, seconds: int = None):
         """
         Set's the cooldown before a user get's logged again.

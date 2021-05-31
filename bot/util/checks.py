@@ -3,6 +3,9 @@ from discord.ext import commands
 
 # https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/utils/checks.py#L11
 # MPL-2.0
+from bot.util.selection import FilterType
+
+
 async def check_permissions(ctx, perms, *, check=all, channel=None):
     is_owner = await ctx.bot.is_owner(ctx.author)
     if is_owner:
@@ -39,32 +42,76 @@ async def get_command_config(ctx):
     return await cog.get_command_config(ctx.guild.id)
 
 
-async def raw_is_admin(ctx):
+async def raw_is_admin_or_perms(ctx):
     if ctx.guild is None:
         return True
     allowed = await check_guild_permissions(ctx, {'administrator': True})
     if allowed:
         return allowed
-    config = await get_command_config(ctx)
-    if not config:
-        return False
-    admin_id = config.admin_id
-    for role in ctx.author.roles:
-        if role.id == admin_id:
-            return True
+    if ctx.permissions.admin:
+        return True
+    if FilterType.user in ctx.permissions.modded.allowed or FilterType.role in ctx.permissions.modded.allowed:
+        return True
     return False
 
 
-def is_admin():
+def is_admin_or_perms():
     async def predicate(ctx):   # noqa: WPS430
-        return await check_guild_permissions(ctx, {'administrator': True})
+        return await raw_is_admin_or_perms(ctx)
 
     return commands.check(predicate)
 
 
+async def raw_is_admin(ctx):
+    if ctx.guild is None:
+        return True
+    if ctx.permissions.admin:
+        return True
+    return await check_guild_permissions(ctx, {'administrator': True})
+
+
+def is_admin():
+    async def predicate(ctx):
+        return await raw_is_admin(ctx)
+
+    return commands.check(predicate)
+
+
+async def raw_is_manager_or_perms(ctx):
+    if ctx.guild is None:
+        return True
+    if await raw_is_admin_or_perms(ctx):
+        return True
+    allowed = await check_guild_permissions(ctx, {'manage_server': True})
+    if allowed:
+        return allowed
+    if ctx.permissions.allowed and ctx.permissions.manager:
+        return True
+    if FilterType.user in ctx.permissions.modded.allowed or FilterType.role in ctx.permissions.modded.allowed:
+        return True
+    return False
+
+
+def is_manager_or_perms():
+    async def predicate(ctx):   # noqa: WPS430
+        return await raw_is_manager_or_perms(ctx)
+
+    return commands.check(predicate)
+
+
+async def raw_is_manager(ctx):
+    if ctx.guild is None:
+        return True
+    if await raw_is_admin(ctx):
+        return True
+    if ctx.permissions.allowed and ctx.permissions.manager:
+        return True
+    return await check_guild_permissions(ctx, {'manage_server': True})
+
+
 def is_manager():
     async def predicate(ctx):   # noqa: WPS430
-        return await check_guild_permissions(ctx, {'manage_server': True, 'administrator': True}, check=any)
+        return await raw_is_manager(ctx)
 
     return commands.check(predicate)
 
