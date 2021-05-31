@@ -187,7 +187,7 @@ class Statistics(commands.Cog):
                     name = guild.name
                 else:
                     name = str(c)
-                formatted_channels.append(f'`{i}. {name} (`{c}`) - `{amount} messages`')
+                formatted_channels.append(f'`{i}.` {name} (`{c}`) - `{amount} messages`')
             description += '\n\n **Messages | Top 5 Guilds**\n' \
                            + '\n'.join(formatted_channels)
 
