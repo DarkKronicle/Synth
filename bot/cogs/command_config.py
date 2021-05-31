@@ -297,6 +297,7 @@ class CommandSettings(commands.Cog):
             await ctx.send_help('!statconfig')
 
     @command_config.command(name='admin')
+    @checks.is_admin()
     async def admin(self, ctx: Context, role: discord.Role = None):
         """
         Set's a role for complete synth access.
@@ -323,6 +324,7 @@ class CommandSettings(commands.Cog):
         await ctx.send(embed=ctx.create_embed(description))
 
     @command_config.command(name='manager')
+    @checks.is_admin()
     async def manager(self, ctx: Context, role: discord.Role = None):
         """
         Set's a role for moderate synth access.
