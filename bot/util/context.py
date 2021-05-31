@@ -20,6 +20,15 @@ class Context(commands.Context):
         self.connection = None
         self.permissions = None
 
+    async def is_allowed(self):
+        if self.permissions is None:
+            return True
+
+        if await self.bot.is_owner(self.author):
+            return True
+
+        return self.permissions.allowed or self.permissions.admin
+
     async def timeout(self, *, delete_after=15):
         """
         Sends a timeout message.

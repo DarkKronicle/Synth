@@ -296,6 +296,57 @@ class CommandSettings(commands.Cog):
         if not ctx.invoked_subcommand:
             await ctx.send_help('!statconfig')
 
+    @command_config.command(name='admin')
+    async def admin(self, ctx: Context, role: discord.Role = None):
+        """
+        Set's a role for complete synth access.
+
+        Admin's get access to every command, regardless of block status.
+
+        Examples:
+            admin Admin
+            admin @Owner
+        """
+        command = 'INSERT INTO role_config(guild_id, admin_role) VALUES ({0}, {1}) ON CONFLICT (guild_id) DO UPDATE SET admin_role = EXCLUDED.admin_role;'
+        if role is None:
+            command = command.format(ctx.guild.id, 'NULL')
+        else:
+            command = command.format(ctx.guild.id, role.id)
+        async with db.MaybeAcquire() as con:
+            print(command)
+            con.execute(command)
+        if role:
+            description = 'Set Admin Role to {0}'.format(role.mention)
+        else:
+            description = 'Removed Admin Role'
+        self.get_command_config.invalidate(self, ctx.guild.id)
+        await ctx.send(embed=ctx.create_embed(description))
+
+    @command_config.command(name='manager')
+    async def manager(self, ctx: Context, role: discord.Role = None):
+        """
+        Set's a role for moderate synth access.
+
+        Manager's get access to configure bot options but don't bypass command config.
+
+        Examples:
+            manager Moderator
+            manager @Developer
+        """
+        command = 'INSERT INTO role_config(guild_id, manager_role) VALUES ({0}, {1}) ON CONFLICT (guild_id) DO UPDATE SET manager_role = EXCLUDED.manager_role;'
+        if role is None:
+            command = command.format(ctx.guild.id, 'NULL')
+        else:
+            command = command.format(ctx.guild.id, role.id)
+        async with db.MaybeAcquire() as con:
+            con.execute(command)
+        if role:
+            description = 'Set Manager Role to {0}'.format(role.mention)
+        else:
+            description = 'Removed Manager Role'
+        self.get_command_config.invalidate(self, ctx.guild.id)
+        await ctx.send(embed=ctx.create_embed(description))
+
     @command_config.command(name='list')
     async def list_config(self, ctx: Context):
         """List's the current command config."""
@@ -331,9 +382,20 @@ class CommandSettings(commands.Cog):
                 entries.append('{1}  {0}'.format(c, human_bool(True)))
             for c in perms.denied:
                 entries.append('{1}  {0}'.format(c, human_bool(False)))
+        embed = ctx.create_embed(title='Settings for {0}'.format(ctx.guild.name))
+        if config.admin_id:
+            admin = '<@&{0}>'.format(config.admin_id)
+        else:
+            admin = 'None'
+        if config.manager_id:
+            manager = '<@&{0}>'.format(config.manager_id)
+        else:
+            manager = 'None'
+        embed.add_field(name='Admin', value=admin)
+        embed.add_field(name='Manager', value=manager)
         menu = paginator.SimplePages(
             entries, per_page=15,
-            embed=ctx.create_embed(title='Settings for {0}'.format(ctx.guild.name)),
+            embed=embed,
             numbers=False,
         )
         try:

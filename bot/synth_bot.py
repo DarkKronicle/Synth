@@ -135,7 +135,7 @@ class SynthBot(commands.Bot):
         # TODO Context doesn't walk through groups so only the base command is ever shown...
         ctx.permissions = await command_config.get_perms(self, ctx)
 
-        if not ctx.permissions.allowed and not await self.is_owner(ctx.author):
+        if not await ctx.is_allowed():
             return
 
         await self.invoke(ctx)

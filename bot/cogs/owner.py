@@ -220,7 +220,7 @@ class Owner(commands.Cog):
         msg.content = ctx.prefix + command
         new_ctx: Context = await self.bot.get_context(msg, cls=type(ctx))
         new_ctx.permissions = await command_config.get_perms(self.bot, new_ctx)
-        if not new_ctx.permissions.allowed and not await self.bot.is_owner(new_ctx.author):
+        if not await new_ctx.is_allowed():
             return
         await self.bot.invoke(new_ctx)
 
