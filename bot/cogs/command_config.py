@@ -4,7 +4,7 @@ from discord.ext import commands
 from bot.util import database as db, checks, paginator
 from bot.util import storage_cache as cache
 from bot.util.context import Context
-from bot.util.format import human_bool
+from bot.util.formats import human_bool
 from bot.util.selection import FilterType
 
 
@@ -260,6 +260,7 @@ class CommandSettings(commands.Cog):
 
     @command_config.command(name='admin')
     @checks.is_admin()
+    @commands.cooldown(1, 10, type=commands.BucketType.user)
     async def admin(self, ctx: Context, role: discord.Role = None):
         """
         Set's a role for complete synth access.
@@ -286,6 +287,7 @@ class CommandSettings(commands.Cog):
 
     @command_config.command(name='manager')
     @checks.is_admin()
+    @commands.cooldown(1, 10, type=commands.BucketType.user)
     async def manager(self, ctx: Context, role: discord.Role = None):
         """
         Set's a role for moderate synth access.
@@ -311,6 +313,7 @@ class CommandSettings(commands.Cog):
         await ctx.send(embed=ctx.create_embed(description))
 
     @command_config.command(name='list')
+    @commands.cooldown(1, 10, type=commands.BucketType.user)
     async def list_config(self, ctx: Context):
         """List's the current command config."""
         config = await self.get_command_config(ctx.guild.id)
@@ -465,6 +468,7 @@ class CommandSettings(commands.Cog):
 
     @command_config.command(name='reset')
     @checks.is_admin()
+    @commands.cooldown(1, 10, type=commands.BucketType.guild)
     async def reset_cc(self, ctx: Context):
         prompt = paginator.Prompt('Are you sure you want to reset command config?')
         try:

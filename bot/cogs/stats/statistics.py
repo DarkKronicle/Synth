@@ -1,9 +1,9 @@
 import re
 import typing
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from bot.util import database as db
+from bot.util import database as db, time_converter
 from bot.util import time_util as tutil
 from bot.util import graphs
 import discord
@@ -104,8 +104,7 @@ class Statistics(commands.Cog):
             await ctx.send_help('stats')
 
     @stats.command(name='messages', aliases=['msg', 'message'])
-    async def messages(self, ctx: Context, selection: typing.Optional[StatConverter] = None, *,
-                       interval: tutil.IntervalConverter = '1 day'):
+    async def messages(self, ctx: Context, *, when: time_converter.UserFriendlyTime(past=True, default='1 day')):
         """
         Pulls up a menu with statistics containing chat information.
 
@@ -116,22 +115,38 @@ class Statistics(commands.Cog):
             messages 1 month
             messages general 5 days
         """
+
+        interval = tutil.get_utc().replace(microsecond=0) - when.dt.replace(microsecond=0)
+
+        if interval.days > 365:
+            raise commands.BadArgument("Data can't be over a year away!")
+
+        if interval.days == 0 and interval.hour == 0 and interval.minute < 30:
+            raise commands.BadArgument('Data has to be greater than 30 minutes!')
+
+        selection = None
+        try:
+            if when.arg is not None:
+                selection = await StatConverter().convert(ctx, when.arg)
+        except:
+            selection = None
+
         if selection is None:
             selection = StatisticType(guild=ctx.guild)
         if interval is None:
             interval = '1 day'
 
-        command = "SELECT * FROM messages WHERE {0} time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
+        command = "SELECT * FROM messages WHERE {0} time >= NOW() at time zone 'utc' - INTERVAL %s;"
         cond = ''
         if selection.get_condition() is not None:
             cond = selection.get_condition() + ' AND'
-        command = command.format(cond, interval)
+        command = command.format(cond)
         async with db.MaybeAcquire() as con:
-            con.execute(command)
+            con.execute(command, (interval,))
             entries = con.fetchall()
         if len(entries) == 0:
             return await ctx.send(embed=ctx.create_embed(
-                "Looks like there's no entries for that selection! You may have to wait 5-15 minutes for the database to update.",
+                "Looks like there's no entries for the past {0}! You may have to wait 5-15 minutes for the database to update.".format(interval),
                 error=True
             ))
         embed = await self.get_message_embed(ctx, selection, entries=entries, interval=interval)

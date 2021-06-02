@@ -55,25 +55,6 @@ class GuildConfig(commands.Cog):
             return GuildSettings.get_default(guild)
         return GuildSettings(guild, entry['prefix'], entry['message_cooldown'])
 
-    @commands.command(name='!prefix')
-    @checks.is_manager()
-    async def prefix(self, ctx: Context, *, prefix: str = None):
-        """
-        Change's the server's prefix. The global prefix s~ will always be accessible.
-
-        Examples:
-              !prefix ~
-              !prefix {}
-        """
-        if prefix is None or len(prefix) > 6 or len(prefix) < 1:
-            return await ctx.send('You need to specify a prefix of max length 6 and minimum length 1!')
-        command = 'INSERT INTO guild_config(guild_id, prefix) VALUES ({0}, %s) ON CONFLICT (guild_id) DO UPDATE SET prefix = EXCLUDED.prefix;'  # noqa: WPS323
-        command = command.format(str(ctx.guild.id))
-        async with db.MaybeAcquire() as con:
-            con.execute(command, (prefix,))
-        self.get_settings.invalidate(self, ctx.guild.id)
-        await ctx.send(embed=ctx.create_embed(description='Updated prefix to `{0}`'.format(prefix)))
-
     @commands.command(name='*flat', hidden=True)
     @commands.is_owner()
     async def flat(self, ctx: Context, guild_id: int, new_days: int, column: str):

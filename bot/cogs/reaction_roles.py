@@ -47,6 +47,14 @@ class ReactionType(enum.Enum):
     toggle = 0
     once = 1
 
+    @classmethod
+    def get_description(cls, reaction_type):
+        if reaction_type == ReactionType.toggle:
+            return 'Toggles the specific reaction role. Users can have as many from the message.'
+        if reaction_type == ReactionType.once:
+            return 'Toggles the specific reaction role. Users can only have one from a message.'
+        return 'Unknown...'
+
 
 class ReactionRole:
 
@@ -171,6 +179,7 @@ class ReactionRoles(commands.Cog):
             await ctx.send_help('!role')
 
     @role_command.command(name='list')
+    @commands.cooldown(1, 8, type=commands.BucketType.user)
     async def list_roles(self, ctx: Context):
         command = 'SELECT * FROM reaction_messages WHERE guild_id={0};'
         roles_select = 'SELECT * FROM reaction_roles WHERE reaction_role_id in ({0});'
@@ -203,7 +212,20 @@ class ReactionRoles(commands.Cog):
             pass
 
     @role_command.command(name='create')
-    async def add_role(self, ctx: Context, role_type: ReactionTypeConverter, message: discord.Message, role: discord.Role, reaction: Emoji):
+    @commands.cooldown(1, 8, type=commands.BucketType.user)
+    async def add_role(self, ctx: Context, message: discord.Message, role: discord.Role, reaction: Emoji):
+        list_format = '{0}. {1}'
+        reaction_types = '\n'.join(
+            [list_format.format(i, ReactionType.get_description(reaction_type)) for i, reaction_type in enumerate(ReactionType)],
+        )
+        result = await ctx.ask('What type of role do you want this to be? ```\n{0}\n```'.format(reaction_types))
+        if not result:
+            return await ctx.send(embed=ctx.create_embed('Timed out!', error=True))
+        try:
+            role_int = int(result)
+            role_type = ReactionType(role_int)
+        except:
+            return await ctx.send(embed=ctx.create_embed('Invalid reaction type!', error=True))
         await self.insert_role(ctx.guild.id, message.channel.id, message.id, role_type.value, role.id, reaction)
         await message.add_reaction(reaction)
         await ctx.send(embed=ctx.create_embed('Success!'))

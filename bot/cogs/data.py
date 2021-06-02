@@ -89,6 +89,7 @@ class Data(commands.Cog):   # noqa: WPS110
         await ctx.send(embed=ctx.create_embed('Deleted all data from {0} for {1}'.format(format_selection, format_interval)))
 
     @data_command.command(name='purgebefore', aliases=['purgepast'])
+    @commands.cooldown(1, 60, type=commands.BucketType.guild)
     async def purge_before(
             self,
             ctx: Context,
@@ -146,6 +147,7 @@ class Data(commands.Cog):   # noqa: WPS110
         """Export command for server information."""
 
     @export.command(name='all')
+    @commands.cooldown(1, 60, type=commands.BucketType.guild)
     async def export_all(self, ctx: Context):
         """Exports all message data in the form of a CSV."""
         await ctx.trigger_typing()

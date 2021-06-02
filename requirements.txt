@@ -10,3 +10,4 @@ Pillow~=7.2.0
 matplotlib~=3.4.2
 seaborn~=0.11.1
 pandas~=1.2.4
+parsedatetime

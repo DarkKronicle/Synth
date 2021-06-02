@@ -101,6 +101,7 @@ class StatChannels(commands.Cog):
             await ctx.send_help('!channels')
 
     @channels.command(name='list')
+    @commands.cooldown(1, 10, type=commands.BucketType.user)
     async def list_channels(self, ctx: Context):
         """
         List's the current stat channels for the server.

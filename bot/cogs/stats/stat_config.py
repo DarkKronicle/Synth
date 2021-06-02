@@ -4,7 +4,7 @@ from discord.ext import commands
 from bot.util import database as db, checks, paginator
 from bot.util import storage_cache as cache
 from bot.util.context import Context
-from bot.util.format import human_bool
+from bot.util.formats import human_bool
 from bot.util.selection import FilterType
 
 

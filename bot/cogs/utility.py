@@ -25,6 +25,7 @@ class Utility(commands.Cog):
 
     utc = gettz('UTC')
 
+    @commands.cooldown(1, 5, type=commands.BucketType.user)
     @commands.command(name='ping')
     async def ping(self, ctx):
         """
@@ -36,6 +37,7 @@ class Utility(commands.Cog):
         dif1 = round((time1 - time0).total_seconds() * 1000)
         await sent.edit(content='Pong! Pinging time was {0}ms'.format(dif1))
 
+    @commands.cooldown(1, 3, type=commands.BucketType.user)
     @commands.command(name='zoneconverter', aliases=['zone2zone', 'z2z'])
     async def time_convert(
         self,
@@ -65,6 +67,7 @@ class Utility(commands.Cog):
             title='{0} -> {1}'.format(from_current_time.tzname(), to_current_time.tzname()),
         ))
 
+    @commands.cooldown(1, 3, type=commands.BucketType.user)
     @commands.command(name='user')
     async def user(self, ctx: Context, user: discord.Member = None):
         """
@@ -142,6 +145,7 @@ class Utility(commands.Cog):
 
     @commands.command(name='roles')
     @commands.guild_only()
+    @commands.cooldown(1, 10, type=commands.BucketType.user)
     async def roles(self, ctx: Context, user: typing.Optional[discord.Member] = None):
         """
         Displays the roles a user has.
