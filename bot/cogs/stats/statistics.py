@@ -121,7 +121,7 @@ class Statistics(commands.Cog):
         if interval.days > 365:
             raise commands.BadArgument("Data can't be over a year away!")
 
-        if interval.days == 0 and interval.hour == 0 and interval.minute < 30:
+        if interval.total_seconds() < 30 * 60:
             raise commands.BadArgument('Data has to be greater than 30 minutes!')
 
         selection = None
