@@ -69,7 +69,7 @@ class StatConverter(commands.Converter):
         if low == 'global':
             return StatisticType(_global=True)
         if low == 'guild' or low == 'server':
-            return StatisticType(guild=ctx.guild, channel=ctx.channel)
+            return StatisticType(guild=ctx.guild)
         try:
             channel = await commands.TextChannelConverter().convert(ctx, argument)
             return StatisticType(channel=channel, guild=ctx.guild)
