@@ -3,8 +3,7 @@ import typing
 from collections import Counter
 from datetime import datetime, timedelta
 
-from bot.util import database as db
-import bot.util.time_converter as time_converter
+from bot.util import database as db, time_converter
 from bot.util import time_util as tutil
 from bot.util import graphs
 import discord

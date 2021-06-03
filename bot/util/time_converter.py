@@ -15,11 +15,6 @@ from discord.ext import commands
 import re
 from bot.util import time_util as tutil
 
-# Monkey patch minutes and seconds into the units
-units = pdt.pdtLocales['en_US'].units
-units['minutes'].append('mins')
-units['seconds'].append('secs')
-
 
 class ShortTime:
     compiled = re.compile("""(?:(?P<years>[0-9])(?:years?|y))?             # e.g. 2y
