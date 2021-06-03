@@ -106,7 +106,7 @@ class PastTime(Time):
 class UserFriendlyTime(commands.Converter):
     """That way quotes aren't absolutely necessary."""
 
-    def __init__(self, converter=None, *, default=None, past=True):
+    def __init__(self, converter=None, *, default=None, past=True, default_delta=None):
         if isinstance(converter, type) and issubclass(converter, commands.Converter):
             converter = converter()
 
@@ -115,6 +115,7 @@ class UserFriendlyTime(commands.Converter):
 
         self.converter = converter
         self.default = default
+        self.default_delta = default_delta
         self.dt = None
         self.arg = None
         self.past = past
@@ -143,6 +144,7 @@ class UserFriendlyTime(commands.Converter):
         obj.converter = self.converter
         obj.default = self.default
         obj.past = self.past
+        obj.default_delta = self.default_delta
         return obj
 
     async def convert(self, ctx, argument):
@@ -162,11 +164,9 @@ class UserFriendlyTime(commands.Converter):
                 data = {k: int(v) for k, v in match.groupdict(default=0).items()}
                 remaining = argument[match.end():].strip()
                 result.dt = now + relativedelta(**data)
-                print(result.dt)
                 if result.past and result.dt > now:
                     # Thinks it's in the future
                     result.dt = now - (result.dt - now)
-                    print(result.dt)
                 return await result.check_constraints(ctx, now, remaining)
 
             # apparently nlp does not like "from now"
@@ -181,6 +181,9 @@ class UserFriendlyTime(commands.Converter):
 
             elements = calendar.nlp(argument, sourceTime=now)
             if elements is None or len(elements) == 0:
+                if result.default_delta is not None:
+                    result.dt = now + result.default_delta
+                    return await result.check_constraints(ctx, now, argument)
                 raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
 
             # handle the following cases:
@@ -192,6 +195,9 @@ class UserFriendlyTime(commands.Converter):
             dt, status, begin, end, dt_string = elements[0]
 
             if not status.hasDateOrTime:
+                if result.default_delta is not None:
+                    result.dt = now + result.default_delta
+                    return await result.check_constraints(ctx, now, argument)
                 raise commands.BadArgument('Invalid time provided, try e.g. "tomorrow" or "3 days".')
 
             if begin not in (0, 1) and end != len(argument):
@@ -230,7 +236,8 @@ class UserFriendlyTime(commands.Converter):
                 pdt.pdtContext.ACU_DAY,
                 pdt.pdtContext.ACU_HOUR,
                 pdt.pdtContext.ACU_MIN,
-                pdt.pdtContext.ACU_SEC
+                pdt.pdtContext.ACU_SEC,
+                pdt.pdtContext.ACU_TIME
             ):
                 result.dt = now - (result.dt - now)
             return await result.check_constraints(ctx, now, remaining)

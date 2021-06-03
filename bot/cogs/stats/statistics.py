@@ -104,7 +104,7 @@ class Statistics(commands.Cog):
             await ctx.send_help('stats')
 
     @stats.command(name='messages', aliases=['msg', 'message'])
-    async def messages(self, ctx: Context, *, when: time_converter.UserFriendlyTime(past=True, default='1 day')):
+    async def messages(self, ctx: Context, *, when=''):
         """
         Pulls up a menu with statistics containing chat information.
 
@@ -115,8 +115,13 @@ class Statistics(commands.Cog):
             messages 1 month
             messages general 5 days
         """
+        converter = await time_converter.UserFriendlyTime(
+            past=True,
+            default='server',
+            default_delta=timedelta(days=-1),
+        ).convert(ctx, when)
 
-        interval = tutil.get_utc().replace(microsecond=0) - when.dt.replace(microsecond=0)
+        interval = tutil.get_utc().replace(microsecond=0) - converter.dt.replace(microsecond=0)
 
         if interval.days > 365:
             raise commands.BadArgument("Data can't be over a year away!")
@@ -126,8 +131,8 @@ class Statistics(commands.Cog):
 
         selection = None
         try:
-            if when.arg is not None:
-                selection = await StatConverter().convert(ctx, when.arg)
+            if converter.arg is not None:
+                selection = await StatConverter().convert(ctx, converter.arg)
         except:
             selection = None
 
