@@ -12,13 +12,13 @@ import datetime
 # Lots of inspiration came from https://github.com/Rapptz/RoboDanny/blob/rewrite/cogs/utils/db.py (which is under MPL)
 import decimal
 import inspect
+import json
 import pydoc
 import random
 import string
 from collections import OrderedDict
 
-import psycopg2
-from psycopg2 import extras as pextras
+import asyncpg
 
 
 def random_key(*, min_num=5, max_num=10, forced_num=-1):
@@ -366,44 +366,22 @@ class PrimaryKeyColumn(Column):
 
 class MaybeAcquire:
 
-    def __init__(self, connection=None, cleanup=True):
+    def __init__(self, connection=None, cleanup=True, *, pool):
         self.connection = connection
-        self._connection = None
         self._cleanup = cleanup
-
-    def release(self):
-        if self.connection is not None:
-            self.connection.commit()
-            self.connection.cursor().close()
-            self.connection.close()
-        if self._connection is not None:
-            self._connection.commit()
-            self._connection.close()
-
-    def cursor(self):
-        if self.connection is not None:
-            return self.connection.cursor(cursor_factory=pextras.DictCursor)
-        if self._connection is not None:
-            return self._connection.cursor(cursor_factory=pextras.DictCursor)
-        return None
+        self._connection = None
+        self.pool = pool
 
     async def __aenter__(self):
         if self.connection is None:
             self._cleanup = True
-            self._connection = psycopg2.connect(
-                'dbname={name} user={user} password={password}'.format(
-                    name=Table.name,
-                    user=Table.user,
-                    password=Table.password,
-                ),
-            )
-            return self._connection.cursor(cursor_factory=pextras.DictCursor)
-        return self.connection.cursor()
+            self._connection = c = await self.pool.acquire()
+            return c
+        return self.connection
 
     async def __aexit__(self, *args):
-        if self._cleanup and self._connection is not None:
-            self._connection.commit()
-            self._connection.close()
+        if self._cleanup and self._connection:
+            await self.pool.release(self._connection)
 
 
 class TableMeta(type):
@@ -444,14 +422,39 @@ class TableMeta(type):
 class Table(metaclass=TableMeta):
 
     @classmethod
-    def acquire_connection(cls, connection=None):
-        return MaybeAcquire(connection)
+    async def create_pool(cls, uri, **kwargs):
+        """Sets up and returns the PostgreSQL connection pool that is used.
+        .. note::
+            This must be called at least once before doing anything with the tables.
+            And must be called on the ``Table`` class.
+        Parameters
+        -----------
+        uri: str
+            The PostgreSQL URI to connect to.
+        \*\*kwargs
+            The arguments to forward to asyncpg.create_pool.
+        """
+
+        def _encode_jsonb(value):
+            return json.dumps(value)
+
+        def _decode_jsonb(value):
+            return json.loads(value)
+
+        old_init = kwargs.pop('init', None)
+
+        async def init(con):
+            await con.set_type_codec('jsonb', schema='pg_catalog', encoder=_encode_jsonb, decoder=_decode_jsonb,
+                                     format='text')
+            if old_init is not None:
+                await old_init(con)
+
+        cls._pool = pool = await asyncpg.create_pool(uri, init=init, **kwargs)
+        return pool
 
     @classmethod
-    def create_data(cls, name, user, password):
-        cls.name = name
-        cls.user = user
-        cls.password = password
+    def acquire_connection(cls, connection=None):
+        return MaybeAcquire(connection, pool=cls._pool)
 
     @classmethod
     def create_table(cls, overwrite=False):
@@ -485,8 +488,8 @@ class Table(metaclass=TableMeta):
     @classmethod
     async def create(cls, connection=None):
         sql = cls.create_table(overwrite=False)
-        async with MaybeAcquire(connection=connection) as con:
-            con.execute(sql)
+        async with MaybeAcquire(connection=connection, pool=cls._pool) as con:
+            await con.execute(sql)
 
     @classmethod
     def all_tables(cls):

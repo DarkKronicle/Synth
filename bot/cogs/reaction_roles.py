@@ -183,15 +183,13 @@ class ReactionRoles(commands.Cog):
     async def list_roles(self, ctx: Context):
         command = 'SELECT * FROM reaction_messages WHERE guild_id={0};'
         roles_select = 'SELECT * FROM reaction_roles WHERE reaction_role_id in ({0});'
-        async with db.MaybeAcquire() as con:
-            con.execute(command.format(ctx.guild.id))
-            messages = con.fetchall()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            messages = await con.fetch(command.format(ctx.guild.id))
             if len(messages) == 0:
                 return await ctx.send(ctx.create_embed("You don't have any reaction roles setup!", error=True))
-            con.execute(roles_select.format(
+            roles = await con.fetch(roles_select.format(
                 ','.join(str(entry['reaction_role_id']) for entry in messages)
             ))
-            roles = con.fetchall()
         string_representation = "<#{channel_id}> (Type: `{reaction_type}`) - {all_roles}\n{formatted_roles}"
         format_roles = "{0} <@&{1}>"
         strings = []
@@ -235,13 +233,12 @@ class ReactionRoles(commands.Cog):
         command = command.format(guild_id, channel_id, message_id, reaction_index)
         select = 'SELECT * FROM reaction_messages WHERE guild_id = {0} AND message_id = {1};'
         select = select.format(guild_id, message_id)
-        insert = 'INSERT INTO reaction_roles (reaction_role_id, role_id, reaction) VALUES ({0}, {1}, %s) ON CONFLICT DO NOTHING;'
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            con.execute(select)
-            message_entry = con.fetchone()
+        insert = 'INSERT INTO reaction_roles (reaction_role_id, role_id, reaction) VALUES ({0}, {1}, $1) ON CONFLICT DO NOTHING;'
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
+            message_entry = await con.fetchrow(select)
             insert = insert.format(message_entry['reaction_role_id'], role_id)
-            con.execute(insert, (str(reaction),))
+            await con.execute(insert, str(reaction))
         self.get_reaction_roles.invalidate(self, guild_id, message_id)
 
     @cache.cache()
@@ -253,14 +250,12 @@ class ReactionRoles(commands.Cog):
         check_command = 'SELECT * FROM reaction_messages WHERE guild_id = {0} and message_id = {1};'
         roles_command = 'SELECT * FROM reaction_roles WHERE reaction_role_id = {0};'
 
-        async with db.MaybeAcquire() as con:
-            con.execute(check_command.format(guild_id, message_id))
-            entry = con.fetchone()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entry = await con.fetchrow(check_command.format(guild_id, message_id))
             if entry is None:
                 # Not a reaction message
                 return None
-            con.execute(roles_command.format(entry['reaction_role_id']))
-            roles_entry = con.fetchall()
+            roles_entry = await con.fetch(roles_command.format(entry['reaction_role_id']))
 
         if len(roles_entry) == 0:
             # No reaction roles

@@ -88,8 +88,8 @@ class Voice(commands.Cog):
             return
         command = 'INSERT INTO voice(guild_id, channel_id, user_id, time, amount) VALUES {0} ON CONFLICT ON CONSTRAINT unique_voice DO UPDATE SET amount = EXCLUDED.amount;'
         command = command.format(', '.join(elements))
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         self.cache = [cached for cached in self.cache if not cached.has_stopped()]  # noqa: WPS441
 
     @commands.command(name='*voicepush', hidden=True)

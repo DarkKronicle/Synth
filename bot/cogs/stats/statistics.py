@@ -141,14 +141,13 @@ class Statistics(commands.Cog):
         if interval is None:
             interval = '1 day'
 
-        command = "SELECT * FROM messages WHERE {0} time >= NOW() at time zone 'utc' - INTERVAL %s;"
+        command = "SELECT * FROM messages WHERE {0} time >= NOW() at time zone 'utc' - INTERVAL {1};"
         cond = ''
         if selection.get_condition() is not None:
             cond = selection.get_condition() + ' AND'
-        command = command.format(cond)
-        async with db.MaybeAcquire() as con:
-            con.execute(command, (interval,))
-            entries = con.fetchall()
+        command = command.format(cond, "'{0} SECONDS'".format(interval.total_seconds()))
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entries = await con.fetch(command)
         if len(entries) == 0:
             return await ctx.send(embed=ctx.create_embed(
                 "Looks like there's no entries for the past {0}! You may have to wait 5-15 minutes for the database to update.".format(interval),
@@ -174,9 +173,8 @@ class Statistics(commands.Cog):
         if entries is None:
             command = "SELECT * FROM messages WHERE {0} AND time >= NOW() at time zone 'utc' - INTERVAL '{1}';"
             command = command.format(selection.get_condition(), interval)
-            async with db.MaybeAcquire() as con:
-                con.execute(command)
-                entries = con.fetchall()
+            async with db.MaybeAcquire(pool=self.bot.pool) as con:
+                entries = await con.fetch(command)
         await ctx.trigger_typing()
         small, big = self.count_compressed(entries)
         description = f'Total of `{self.count_all(entries)} messages`\n\n\\*{small} messages lost some data, {big} messages lost most data.\n\n'
@@ -240,9 +238,8 @@ class Statistics(commands.Cog):
             interval = '1 day'
         command = "SELECT * FROM voice WHERE {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
         command = command.format(selection.get_condition(), interval)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entries = await con.fetch(command)
         embed = await self.get_voice_embed(ctx, selection, entries=entries, interval=interval)
         plot = graphs.plot_24_hour_voice(entries=entries)
         embed.set_image(url='attachment://graph.png')
@@ -252,9 +249,8 @@ class Statistics(commands.Cog):
         if entries is None:
             command = "SELECT * FROM voice WHERE guild_id = {0} AND time + amount >= NOW() at time zone 'utc' - INTERVAL '{1}';"
             command = command.format(selection.get_condition(), interval)
-            async with db.MaybeAcquire() as con:
-                con.execute(command)
-                entries = con.fetchall()
+            async with db.MaybeAcquire(pool=self.bot.pool) as con:
+                entries = await con.fetch(command)
 
         description = f'Total of `{tutil.human(self.time_all(entries))}`'
         if not selection.is_member():

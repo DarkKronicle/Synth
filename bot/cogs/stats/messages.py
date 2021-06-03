@@ -47,8 +47,8 @@ class Messages(commands.Cog):
     async def on_guild_join(self, guild: discord.Guild):
         command = 'INSERT INTO guild_config(guild_id) VALUES ({0}) ON CONFLICT (guild_id) DO NOTHING;'
         command = command.format(guild.id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -78,9 +78,8 @@ class Messages(commands.Cog):
         g_settings = {}
         command = 'SELECT guild_id, specific_remove, time_remove, ' \
                   'detail_remove FROM guild_config;'
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            settings = con.fetchall()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            settings = await con.fetch(command)
         for e in settings:
             g_settings[e['guild_id']] = {
                 'specific': e['specific_remove'],
@@ -88,7 +87,7 @@ class Messages(commands.Cog):
                 'detail': e['detail_remove']
             }
         for g, setting in g_settings.items():
-            async with db.MaybeAcquire() as con:
+            async with db.MaybeAcquire(pool=self.bot.pool) as con:
                 await self.flat_specific(g, setting['specific'], con)
                 await self.flat_time(g, setting['time'], con)
                 await self.flat_details(g, setting['detail'], con)
@@ -100,8 +99,8 @@ class Messages(commands.Cog):
         if len(not_in) == 0:
             return
         command = command.format(', '.join(not_in))
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
 
     @commands.command(name='*messagepush', hidden=True)
     @commands.is_owner()
@@ -125,8 +124,8 @@ class Messages(commands.Cog):
                   'ON CONFLICT ON CONSTRAINT unique_message' \
                   ' DO UPDATE SET amount = messages.amount + EXCLUDED.amount;'
         command = command.format(', '.join(insert))
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         self.cache.clear()
 
     @commands.command(name='*flatspecific', hidden=True)
@@ -134,7 +133,7 @@ class Messages(commands.Cog):
     async def flat_specific_command(self, ctx: Context, guild_id: int, upper: int):
         if ctx.bot.get_guild(guild_id) is None:
             return await ctx.send('Not a guild!')
-        async with db.MaybeAcquire() as con:
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
             await self.flat_specific(guild_id, upper, con)
         await ctx.check(0)
 
@@ -143,7 +142,7 @@ class Messages(commands.Cog):
     async def flat_specific_command(self, ctx: Context, guild_id: int, upper: int):
         if ctx.bot.get_guild(guild_id) is None:
             return await ctx.send('Not a guild!')
-        async with db.MaybeAcquire() as con:
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
             await self.flat_time(guild_id, upper, con)
         await ctx.check(0)
 
@@ -152,15 +151,14 @@ class Messages(commands.Cog):
     async def flat_specific_command(self, ctx: Context, guild_id: int, upper: int):
         if ctx.bot.get_guild(guild_id) is None:
             return await ctx.send('Not a guild!')
-        async with db.MaybeAcquire() as con:
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
             await self.flat_details(guild_id, upper, con)
         await ctx.check(0)
 
     async def flat_specific(self, guild_id, days, con):
         interval = f"INTERVAL '{days} DAYS'"
         command = f"DELETE FROM messages WHERE time <= NOW() at time zone 'utc' - {interval} AND guild_id = {guild_id} AND channel_id IS NOT NULL AND user_id IS NOT NULL RETURNING *;"
-        con.execute(command)
-        entries = con.fetchall()
+        entries = await con.fetch(command)
         channels = Counter()
         users = Counter()
         for e in entries:
@@ -178,7 +176,7 @@ class Messages(commands.Cog):
                               'ON CONFLICT ON CONSTRAINT unique_message' \
                               ' DO UPDATE SET amount = messages.amount + EXCLUDED.amount;'
             channel_command = channel_command.format(', '.join(channel_values))
-            con.execute(channel_command)
+            await con.execute(channel_command)
 
         if len(users) > 0:
             user_values = []
@@ -192,13 +190,12 @@ class Messages(commands.Cog):
                            'ON CONFLICT ON CONSTRAINT unique_message' \
                            ' DO UPDATE SET amount = messages.amount + EXCLUDED.amount;'
             user_command = user_command.format(', '.join(user_values))
-            con.execute(user_command)
+            await con.execute(user_command)
 
     async def flat_time(self, guild_id, days, con):
         interval = f"INTERVAL '{days} DAYS'"
         command = f"DELETE FROM messages WHERE time <= NOW() at time zone 'utc' - {interval} AND guild_id = {guild_id} AND (channel_id IS NOT NULL or user_id IS NOT NULL) RETURNING *;"
-        con.execute(command)
-        entries = con.fetchall()
+        entries = await con.fetch(command)
         channels = Counter()
         users = Counter()
         for e in entries:
@@ -219,7 +216,7 @@ class Messages(commands.Cog):
                               'ON CONFLICT ON CONSTRAINT unique_message' \
                               ' DO UPDATE SET amount = messages.amount + EXCLUDED.amount;'
             channel_command = channel_command.format(', '.join(channel_values))
-            con.execute(channel_command)
+            await con.execute(channel_command)
 
         if len(users) > 0:
             user_values = []
@@ -233,13 +230,12 @@ class Messages(commands.Cog):
                            'ON CONFLICT ON CONSTRAINT unique_message' \
                            ' DO UPDATE SET amount = messages.amount + EXCLUDED.amount;'
             user_command = user_command.format(', '.join(user_values))
-            con.execute(user_command)
+            await con.execute(user_command)
 
     async def flat_details(self, guild_id, days, con):
         interval = f"INTERVAL '{days} DAYS'"
         command = f"DELETE FROM messages WHERE time <= NOW() at time zone 'utc' - {interval} AND guild_id = {guild_id} RETURNING *;"
-        con.execute(command)
-        entries = con.fetchall()
+        entries = await con.fetch(command)
         channels = Counter()
         for e in entries:
             if e['channel_id'] is not None:
@@ -256,7 +252,7 @@ class Messages(commands.Cog):
                               'ON CONFLICT ON CONSTRAINT unique_message' \
                               ' DO UPDATE SET amount = messages.amount + EXCLUDED.amount;'
             channel_command = channel_command.format(', '.join(channel_values))
-            con.execute(channel_command)
+            await con.execute(channel_command)
 
 
 def setup(bot):

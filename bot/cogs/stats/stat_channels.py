@@ -64,10 +64,9 @@ class StatChannels(commands.Cog):
 
     async def refresh_channels(self):
         to_edit = []
-        async with db.MaybeAcquire() as con:
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
             command = "SELECT * FROM stat_channels;"
-            con.execute(command)
-            entries = con.fetchall()
+            entries = await con.fetch(command)
             for entry in entries:
                 guild_id = entry['guild_id']
                 channel_id = entry['channel_id']
@@ -107,9 +106,8 @@ class StatChannels(commands.Cog):
         List's the current stat channels for the server.
         """
         command = 'SELECT * FROM stat_channels WHERE guild_id = {0};'
-        async with db.MaybeAcquire() as con:
-            con.execute(command.format(ctx.guild.id))
-            entries = con.fetchall()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entries = await con.fetch(command.format(ctx.guild.id))
         message = []
         for e in entries:
             channel_type = e['type']
@@ -137,9 +135,8 @@ class StatChannels(commands.Cog):
             delete 763
         """
         command = 'SELECT * FROM stat_channels WHERE guild_id = {0} AND id = {1};'
-        async with db.MaybeAcquire() as con:
-            con.execute(command.format(ctx.guild.id, id))
-            entry = con.fetchone()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entry = await con.fetchrow(command.format(ctx.guild.id, id))
         if entry is None:
             return await ctx.send(embed=ctx.create_embed("That channel doesn't exist!", error=True))
         page = Prompt('Are you sure you want to stat channel <#{0}>?\n\n*This will not delete the channel'.format(entry['channel_id']))
@@ -148,8 +145,8 @@ class StatChannels(commands.Cog):
         if not result:
             return await ctx.send(embed=ctx.create_embed('Cancelled!'))
         command = 'DELETE FROM stat_channels WHERE guild_id = {0} AND id = {1};'
-        async with db.MaybeAcquire() as con:
-            con.execute(command.format(ctx.guild.id, id))
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command.format(ctx.guild.id, id))
         await ctx.send(embed=ctx.create_embed('Deleted!'))
 
     @channels.command(name="create")
@@ -169,11 +166,9 @@ class StatChannels(commands.Cog):
             return await ctx.send(embed=ctx.create_embed('You have to specify a channel to convert!', error=True))
         count_command = 'SELECT COUNT(id) FROM stat_channels WHERE guild_id = {0};'.format(ctx.guild.id)
         already_command = 'SELECT COUNT(id) FROM stat_channels WHERE guild_id = {0} AND channel_id = {1};'
-        async with db.MaybeAcquire() as con:
-            con.execute(already_command.format(ctx.guild.id, channel.id))
-            already = con.fetchone()
-            con.execute(count_command)
-            entry = con.fetchone()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            already = await con.fetchrow(already_command.format(ctx.guild.id, channel.id))
+            entry = await con.fetchrow(count_command)
         if already['count'] != 0:
             return await ctx.send(embed=ctx.create_embed("You can't have multiple stat channels on one channel!", error=True))
         if entry['count'] > 7:

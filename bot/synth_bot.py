@@ -56,9 +56,10 @@ async def get_prefix(bot_obj, message: discord.Message):
 
 class SynthBot(commands.Bot):
 
-    def __init__(self):
+    def __init__(self, pool):
         logging.info('Loading bot...')
         self.loops = {}
+        self.pool = pool
         allowed_mentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
 
         intents = discord.Intents.default()
@@ -138,8 +139,10 @@ class SynthBot(commands.Bot):
         if not await ctx.is_allowed():
             return
 
-        await self.invoke(ctx)
-        ctx.release()
+        try:
+            await self.invoke(ctx)
+        finally:
+            await ctx.release()
 
     def add_loop(self, name, function):
         """
@@ -194,9 +197,8 @@ class SynthBot(commands.Bot):
 
     async def update_presence(self):
         command = "SELECT SUM(amount) FROM messages WHERE time >= NOW() at time zone 'utc' - INTERVAL '24 HOURS';"
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entry = con.fetchone()
+        async with db.MaybeAcquire(pool=self.pool) as con:
+            entry = await con.fetchrow(command)
         if entry['sum'] is None:
             amount = 0
         else:

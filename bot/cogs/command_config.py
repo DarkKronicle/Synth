@@ -234,11 +234,9 @@ class CommandSettings(commands.Cog):
         command = command.format(guild_id)
         roles = 'SELECT * FROM role_config WHERE guild_id = {0};'
         roles = roles.format(guild_id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
-            con.execute(roles)
-            role_entry = con.fetchone()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entries = await con.fetch(command)
+            role_entry = await con.fetchrow(roles)
         return CommandPermissions(guild_id, role_entry, entries)
 
     async def is_allowed(self, guild, channel, user, command):
@@ -276,8 +274,8 @@ class CommandSettings(commands.Cog):
             command = command.format(ctx.guild.id, 'NULL')
         else:
             command = command.format(ctx.guild.id, role.id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         if role:
             description = 'Set Admin Role to {0}'.format(role.mention)
         else:
@@ -303,8 +301,8 @@ class CommandSettings(commands.Cog):
             command = command.format(ctx.guild.id, 'NULL')
         else:
             command = command.format(ctx.guild.id, role.id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         if role:
             description = 'Set Manager Role to {0}'.format(role.mention)
         else:
@@ -480,25 +478,25 @@ class CommandSettings(commands.Cog):
 
         command = 'DELETE FROM command_config WHERE guild_id = {0};'
         command = command.format(ctx.guild.id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         self.get_command_config.invalidate(self, ctx.guild.id)
         await ctx.send(embed=ctx.create_embed('Reset command config!'))
 
     async def change_config(self, allow, config_type, guild_id, object_id, name):
         command = ('INSERT INTO command_config(guild_id, type, object_id, allow, name) '
-                   'VALUES({0}, {1}, {2}, {3}, %s) ON CONFLICT ON CONSTRAINT one_command '
+                   'VALUES({0}, {1}, {2}, {3}, $1) ON CONFLICT ON CONSTRAINT one_command '
                    'DO UPDATE SET allow = EXCLUDED.allow;')
         command = command.format(guild_id, config_type.value, object_id, allow)
-        async with db.MaybeAcquire() as con:
-            con.execute(command, (name,))
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command, name)
         self.get_command_config.invalidate(self, guild_id)
 
     async def remove_config(self, guild_id, object_id, name):
-        command = "DELETE FROM command_config WHERE guild_id = {0} AND object_id = {1} AND name = %s;"
+        command = "DELETE FROM command_config WHERE guild_id = {0} AND object_id = {1} AND name = $1;"
         command = command.format(guild_id, object_id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command, (name,))
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command, name)
         self.get_command_config.invalidate(self, guild_id)
 
 

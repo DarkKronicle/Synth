@@ -11,8 +11,7 @@ class MessageStatChannel(StatChannel):
     async def name_from_sql(self, guild_id, channel_id, name, text, connection) -> str:
         command = "SELECT * FROM messages WHERE guild_id = {0} AND time >= NOW() at time zone 'utc' - INTERVAL '24 HOURS';"
         command = command.format(guild_id)
-        connection.execute(command)
-        entries = connection.fetchall()
+        entries = await connection.fetch(command)
         i = 0
         for entry in entries:
             if entry['channel_id'] is None and entry['user_id'] is None:
@@ -32,11 +31,11 @@ class MessageStatChannel(StatChannel):
             return await ctx.send(embed=ctx.create_embed(description='Channel name has to contain `{0}`!', error=True))
         if len(name) > 50:
             return await ctx.send(embed=ctx.create_embed(description="Channel name can't be over 50 characters!", error=True))
-        command = "INSERT INTO stat_channels(guild_id, channel_id, type, name) VALUES ({0}, {1}, {2}, %s);"
+        command = "INSERT INTO stat_channels(guild_id, channel_id, type, name) VALUES ({0}, {1}, {2}, $1);"
         command = command.format(ctx.guild.id, channel.id, self.channel_type)
         arguments = ''
-        async with db.MaybeAcquire() as con:
-            con.execute(command, (name,))
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command, name)
         info = await self.get_info(ctx.guild.id,channel.id, name, arguments)
         await ctx.send(embed=ctx.create_embed('Created new stat channel!\n\n{0}'.format(info)))
 

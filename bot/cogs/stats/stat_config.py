@@ -93,9 +93,8 @@ class StatisticConfig(commands.Cog):
     async def get_stat_config(self, guild_id):
         command = 'SELECT type, object_id, allow FROM stat_config WHERE guild_id = {0};'
         command = command.format(guild_id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entries = con.fetchall()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entries = await con.fetch(command)
         return StatPermissions(guild_id, entries)
 
     async def is_allowed(self, guild, channel, user):
@@ -218,15 +217,15 @@ class StatisticConfig(commands.Cog):
                    'VALUES({0}, {1}, {2}, {3}) ON CONFLICT ON CONSTRAINT one_object '
                    'DO UPDATE SET allow = EXCLUDED.allow;')
         command = command.format(guild_id, config_type.value, object_id, allow)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         self.get_stat_config.invalidate(self, guild_id)
 
     async def remove_config(self, guild_id, object_id):
         command = 'DELETE FROM stat_config WHERE guild_id = {0} AND object_id = {1};'
         command = command.format(guild_id, object_id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         self.get_stat_config.invalidate(self, guild_id)
 
     @stat_config.command(name='cooldown')
@@ -262,8 +261,8 @@ class StatisticConfig(commands.Cog):
         command = ('INSERT INTO guild_config(guild_id, message_cooldown) VALUES ({0}, {1}) '
                    'ON CONFLICT (guild_id) DO UPDATE SET message_cooldown = EXCLUDED.message_cooldown;')
         command = command.format(ctx.guild.id, seconds)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         g_config = self.bot.get_cog('GuildConfig')
         if g_config:
             g_config.get_settings.invalidate(g_config, ctx.guild.id)
@@ -283,8 +282,8 @@ class StatisticConfig(commands.Cog):
 
         command = 'DELETE FROM stat_config WHERE guild_id = {0};'
         command = command.format(ctx.guild.id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         self.get_stat_config.invalidate(self, ctx.guild.id)
         await ctx.send(embed=ctx.create_embed('Reset command config!'))
 

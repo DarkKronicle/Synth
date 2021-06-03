@@ -83,8 +83,8 @@ class Data(commands.Cog):   # noqa: WPS110
         )
 
         # Create voice command
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
 
         await ctx.send(embed=ctx.create_embed('Deleted all data from {0} for {1}'.format(format_selection, format_interval)))
 
@@ -132,8 +132,8 @@ class Data(commands.Cog):   # noqa: WPS110
         )
 
         # Create voice command
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
 
         await ctx.send(
             embed=ctx.create_embed('Deleted all data from {0} for {1}'.format(format_selection, format_interval)))
@@ -166,9 +166,8 @@ class Data(commands.Cog):   # noqa: WPS110
 
     async def get_all_guild_entries(self, guild_id):
         command = 'SELECT * FROM messages WHERE guild_id = {0};'
-        async with db.MaybeAcquire() as con:
-            con.execute(command.format(str(guild_id)))
-            return con.fetchall()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            return await con.fetch(command.format(str(guild_id)))
 
     def purge_message(self, before, interval, guild_id, selection):
         builder = ['DELETE FROM messages WHERE guild_id = {0}'.format(guild_id)]

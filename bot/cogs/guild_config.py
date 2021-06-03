@@ -48,12 +48,29 @@ class GuildConfig(commands.Cog):
             return None
         command = 'SELECT prefix, message_cooldown FROM guild_config WHERE guild_id = {0};'
         command = command.format(guild_id)
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
-            entry = con.fetchone()
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            entry = await con.fetchrow(command)
         if entry is None:
             return GuildSettings.get_default(guild)
         return GuildSettings(guild, entry['prefix'], entry['message_cooldown'])
+
+    @commands.command(name='!prefix')
+    @checks.is_manager()
+    async def prefix(self, ctx: Context, *, prefix: str = None):
+        """
+        Change's the server's prefix. The global prefix s~ will always be accessible.
+        Examples:
+              !prefix ~
+              !prefix {}
+        """
+        if prefix is None or len(prefix) > 6 or len(prefix) < 1:
+            return await ctx.send('You need to specify a prefix of max length 6 and minimum length 1!')
+        command = 'INSERT INTO guild_config(guild_id, prefix) VALUES ({0}, %s) ON CONFLICT (guild_id) DO UPDATE SET prefix = EXCLUDED.prefix;'  # noqa: WPS323
+        command = command.format(str(ctx.guild.id))
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            con.execute(command, prefix)
+        self.get_settings.invalidate(self, ctx.guild.id)
+        await ctx.send(embed=ctx.create_embed(description='Updated prefix to `{0}`'.format(prefix)))
 
     @commands.command(name='*flat', hidden=True)
     @commands.is_owner()
@@ -76,8 +93,8 @@ class GuildConfig(commands.Cog):
             return
         command = 'INSERT INTO guild_config(guild_id, {1}) VALUES ({0}, {2}) ON CONFLICT (guild_id) DO UPDATE SET {1} = EXCLUDED.{1};'
         command = command.format(str(ctx.guild.id), column, str(new_days))
-        async with db.MaybeAcquire() as con:
-            con.execute(command)
+        async with db.MaybeAcquire(pool=self.bot.pool) as con:
+            await con.execute(command)
         await ctx.send(embed=ctx.create_embed(description='Updated {0} to `{1}` days.').format(column, new_days))
 
     @commands.command(name='prefix')
