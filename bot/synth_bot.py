@@ -3,12 +3,12 @@ import traceback
 from datetime import datetime
 
 import bot
-from bot.cogs import guild_config, command_config
-from bot.util import database as db
+import glocklib.bot as gbot
+from bot.cogs import guild_config
+from glocklib import database as db
 from bot.util import time_util as tutil
 import discord
-from bot.cogs.help import HelpCommand
-from bot.util.context import Context
+from glocklib import context as Context
 from discord.ext import commands, tasks
 import logging
 
@@ -17,7 +17,6 @@ startup_extensions = [
     'utility', 'stats.messages', 'stats.statistics', 'stats.voice',
     'owner', 'guild_config', 'stats.stat_channels', 'data',
     'stats.members', 'reaction_roles', 'stats.stat_config',
-    'command_config',
 ]
 description = 'The open source discord statistic bot.'
 main_color = discord.Colour(0x9d0df0)
@@ -54,12 +53,11 @@ async def get_prefix(bot_obj, message: discord.Message):
     return prefixes
 
 
-class SynthBot(commands.Bot):
+class SynthBot(gbot.Bot):
 
     def __init__(self, pool):
         logging.info('Loading bot...')
         self.loops = {}
-        self.pool = pool
         allowed_mentions = discord.AllowedMentions(roles=False, everyone=False, users=True)
 
         intents = discord.Intents.default()
@@ -67,6 +65,7 @@ class SynthBot(commands.Bot):
         intents.guilds = True
         intents.reactions = True
         super().__init__(
+            pool,
             command_prefix=get_prefix,
             intents=intents,
             description=description,
@@ -75,7 +74,6 @@ class SynthBot(commands.Bot):
             allowed_mentions=allowed_mentions,
         )
         self.boot = datetime.now()
-        self.help_command = HelpCommand()
         for extension in startup_extensions:
             try:
                 self.load_extension('{0}.{1}'.format(cogs_dir, extension))
@@ -88,31 +86,6 @@ class SynthBot(commands.Bot):
     def run(self):
         super().run(bot.config['bot_token'], reconnect=True)
 
-    async def on_command_error(self, ctx: Context, error):  # noqa: WPS217
-        if isinstance(error, commands.CommandNotFound):
-            return
-        if isinstance(error, commands.CheckFailure):
-            return
-        if isinstance(error, commands.CommandOnCooldown):
-            if await self.is_owner(ctx.author):
-                # We don't want the owner to be on cooldown.
-                await ctx.reinvoke()
-                return
-            # Let people know when they can retry
-            embed = ctx.create_embed(
-                title='Command On Cooldown!',
-                description='This command is currently on cooldown. Try again in `{0}` seconds.'.format(math.ceil(error.retry_after)),
-                error=True,
-            )
-            await ctx.delete()
-            await ctx.send(embed=embed, delete_after=error_timeout)
-            return
-        if isinstance(error, send_error):
-            await ctx.send(embed=ctx.create_embed(description=str(error), error=True), delete_after=error_timeout)
-            await ctx.delete()
-            return
-        raise error
-
     async def get_guild_prefix(self, guild):
         settings = await guild_config.get_guild_settings(self, guild)
         if not settings:
@@ -123,26 +96,6 @@ class SynthBot(commands.Bot):
         self.setup_loop.start()
         await self.update_presence()
         logging.info('Bot up and running!')
-
-    async def process_commands(self, message):
-        if message.author.bot:
-            return
-
-        ctx: Context = await self.get_context(message, cls=Context)
-
-        if ctx.command is None:
-            return
-
-        # TODO Context doesn't walk through groups so only the base command is ever shown...
-        ctx.permissions = await command_config.get_perms(self, ctx)
-
-        if not await ctx.is_allowed():
-            return
-
-        try:
-            await self.invoke(ctx)
-        finally:
-            await ctx.release()
 
     def add_loop(self, name, function):
         """
@@ -179,13 +132,6 @@ class SynthBot(commands.Bot):
             return
         self.time_loop.start()
         self.setup_loop.stop()
-
-    def get_cog(self, name):
-        lower = name.lower()
-        for cog in self.cogs.keys():
-            if cog.lower() == lower:
-                return self.cogs[cog]
-        return None
 
     @discord.utils.cached_property
     def log(self):

@@ -1,5 +1,5 @@
 from bot.cogs.stats import stat_config
-from bot.util import database as db
+from glocklib import database as db
 from bot.util import time_util as tutil
 import discord
 from bot import synth_bot

@@ -3,8 +3,8 @@ from datetime import datetime
 
 import discord
 
-from bot.util import paginator
-from bot.util.context import Context
+from glocklib import paginator
+from glocklib import context as Context
 from dateutil.tz import gettz
 from discord.ext import commands
 
@@ -66,25 +66,6 @@ class Utility(commands.Cog):
             description='From:\n `{0}`\n\nTo:\n `{1}`'.format(f_form, t_form),
             title='{0} -> {1}'.format(from_current_time.tzname(), to_current_time.tzname()),
         ))
-
-    @commands.cooldown(1, 3, type=commands.BucketType.user)
-    @commands.command(name='user')
-    async def user(self, ctx: Context, user: discord.Member = None):
-        """
-        Get's information about a user.
-
-        Examples:
-            user
-            user DarkKronicle
-        """
-        if user is None:
-            user = ctx.author
-        pfp = user.avatar_url
-        embed = ctx.create_embed(title=str(user))
-        embed.set_image(url=pfp)
-        description = 'Created: `{0.created_at}`'.format(user)
-        embed.description = description
-        await ctx.send(embed=embed)
 
     @commands.command(name='poll')
     async def poll(self, ctx: Context, *, channel: typing.Optional[discord.TextChannel]):

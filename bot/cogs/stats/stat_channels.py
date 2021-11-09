@@ -2,12 +2,12 @@ import typing
 
 import discord
 
-from bot.util import database as db, checks
+from glocklib import database as db, checks
 from discord.ext import commands
 from enum import Enum
 from bot.cogs.stats.channels import *
-from bot.util.context import Context
-from bot.util.paginator import Prompt
+from glocklib import context as Context
+from glocklib.paginator import Prompt
 
 
 class ChannelTypes(Enum):

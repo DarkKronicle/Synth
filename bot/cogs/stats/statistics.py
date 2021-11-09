@@ -3,12 +3,13 @@ import typing
 from collections import Counter
 from datetime import datetime, timedelta
 
-from bot.util import database as db, time_converter
+from glocklib import database as db
+from bot.util import time_converter
 from bot.util import time_util as tutil
 from bot.util import graphs
 import discord
 
-from bot.util.context import Context
+from glocklib import context as Context
 from bot.util.paginator import ImagePaginator
 from discord.ext import commands
 

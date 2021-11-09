@@ -1,6 +1,5 @@
-from bot.util import checks
-from bot.util import database as db
-from bot.util.context import Context
+from glocklib import database as db, checks
+from glocklib import context as Context
 from discord.ext import commands
 from bot.util import storage_cache as cache
 

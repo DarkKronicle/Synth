@@ -15,9 +15,9 @@ import typing
 from bot import synth_bot
 from discord.ext import commands, menus
 
-from bot.cogs import command_config
-from bot.util import paginator
-from bot.util.context import Context
+from glocklib import command_config
+from glocklib import paginator
+from glocklib import context as Context
 
 
 class GlobalChannel(commands.Converter):

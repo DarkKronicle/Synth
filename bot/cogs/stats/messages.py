@@ -1,14 +1,14 @@
 import datetime
 from collections import Counter
 
-import bot.util.database as db
+from glocklib import database as db
 import bot.util.storage_cache as storage_cache
 import bot.util.time_util as tutil
 import discord
 
 from bot.cogs import guild_config
 from bot.cogs.stats import stat_config
-from bot.util.context import Context
+from glocklib import context as Context
 from discord.ext import commands
 
 

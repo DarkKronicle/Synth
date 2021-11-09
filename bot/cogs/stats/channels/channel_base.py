@@ -1,4 +1,4 @@
-from bot.util.context import Context
+from glocklib import context as Context
 
 
 class StatChannel:

@@ -2,7 +2,7 @@ import asyncio
 import traceback
 
 from bot.synth_bot import SynthBot, startup_extensions, cogs_dir
-from bot.util import database as db
+from glocklib import database as db
 import bot as bot_storage
 from bot.util.config import Config
 from pathlib import Path

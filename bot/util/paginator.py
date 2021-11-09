@@ -3,16 +3,7 @@ import io
 
 import discord
 from discord.ext import menus
-
-
-class Pages(menus.MenuPages):
-
-    def __init__(self, source, **kwargs):
-        super().__init__(source, check_embeds=True, **kwargs)
-
-    async def finalize(self, timed_out):
-        with contextlib.suppress(discord.HTTPException):
-            await self.message.clear_reactions()
+from glocklib.paginator import Pages
 
 
 class ImagePaginatorSource(menus.ListPageSource):
@@ -72,68 +63,4 @@ class ImagePaginator(Pages):
         if not self.continued:
             await self.source.finalize(timed_out)
         await super().finalize(timed_out)
-        self.continued = False
 
-
-class Prompt(menus.Menu):
-
-    def __init__(self, starting_text, *, delete_after=True):
-        super().__init__(check_embeds=True, delete_message_after=delete_after)
-        self.starting_text = starting_text
-        self.result = None
-
-    async def send_initial_message(self, ctx, channel):
-        embed = ctx.create_embed(self.starting_text)
-        return await ctx.send(embed=embed)
-
-    async def start(self, ctx, *, channel=None, wait=None):
-        if wait is None:
-            wait = True
-        return await super().start(ctx, channel=channel, wait=wait)
-
-    @menus.button('\N{WHITE HEAVY CHECK MARK}')
-    async def confirm(self, payload):
-        self.result = True
-        self.stop()
-
-    @menus.button('\N{CROSS MARK}')
-    async def do_deny(self, payload):
-        self.result = False
-        self.stop()
-
-
-class SimplePageSource(menus.ListPageSource):
-
-    def __init__(self, entries, *, per_page=15, numbers=True):
-        super().__init__(entries, per_page=per_page)
-        self.numbers = numbers
-
-    async def format_page(self, menu, entries):
-        pages = []
-        if self.per_page > 1:
-            for index, entry in enumerate(entries, start=menu.current_page * self.per_page):
-                if self.numbers:
-                    pages.append(f"**{index + 1}.** {entry}")
-                else:
-                    pages.append(str(entry))
-        else:
-            if self.numbers:
-                pages.append(f"**{menu.current_page + 1}.** {entries}")
-            else:
-                pages.append(str(entries))
-
-        maximum = self.get_max_pages()
-        if maximum > 1:
-            footer = f"Page {menu.current_page + 1}/{maximum} ({len(self.entries)} entries.)"
-            menu.embed.set_footer(text=footer)
-
-        menu.embed.description = '\n'.join(pages)
-        return menu.embed
-
-
-class SimplePages(Pages):
-
-    def __init__(self, entries, *, per_page=10, embed=discord.Embed(colour=discord.Colour.purple()), numbers=True):
-        super().__init__(SimplePageSource(entries, per_page=per_page, numbers=numbers))
-        self.embed = embed
-        self.entries = entries

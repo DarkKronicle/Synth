@@ -1,6 +1,6 @@
 from bot.cogs.stats.channels.channel_base import StatChannel
-from bot.util.context import Context
-from bot.util import database as db
+from glocklib import context as Context
+from glocklib import database as db
 from bot.util import time_util as tutil
 
 

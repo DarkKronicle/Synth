@@ -3,11 +3,11 @@ import enum
 import discord
 from discord.ext import commands
 
-from bot.util import database as db, checks
+from glocklib import database as db, checks
 from bot.util import storage_cache as cache
-from bot.util.context import Context
+from glocklib import context as Context
 from bot.util.emoji_util import Emoji
-from bot.util import paginator as pages
+from glocklib import paginator as pages
 
 
 class ReactionMessagesTable(db.Table, table_name='reaction_messages'):
